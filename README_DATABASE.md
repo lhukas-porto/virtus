@@ -24,7 +24,8 @@ Para ter um banco de dados completo, siga os passos abaixo:
     ```bash
     node scripts/generate_catalog_node.js
     ```
-5.  O script criará o arquivo `supabase/migrations/20260218_seed_catalog_massive.sql`. Copie e execute no Supabase SQL Editor.
+5.  O script criará o diretório `supabase/migrations/seed_parts/` contendo arquivos `part_1.sql`, `part_2.sql`, etc.
+6.  Copie e execute **CADA ARQUIVO** no Supabase SQL Editor, um por vez, para evitar erros de limite de tamanho.
 
 ### Opção 2: Python
 
