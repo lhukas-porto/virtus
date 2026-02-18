@@ -24,18 +24,28 @@ export const AddMedicationScreen = () => {
     const route = useRoute<any>();
 
     const medInfo = route.params?.medInfo || null;
-    const initialBarcode = route.params?.barcode || (medInfo?.gtin || '');
+    const editMedication = route.params?.editMedication || null;
+    const initialBarcode = editMedication?.barcode || route.params?.barcode || (medInfo?.gtin || '');
 
-    const [name, setName] = useState(medInfo?.name || '');
-    const [dosage, setDosage] = useState('');
-    const [instructions, setInstructions] = useState(medInfo?.description || '');
+    // Se for edição, tenta separar a descrição do alarme para não sobrescrever
+    // Formato esperado: "Descrição - Alarme..."
+    const existingInstructions = editMedication?.instructions || '';
+    const instructionParts = existingInstructions.split(' - ');
+    const initialDescription = editMedication ? (instructionParts[0] === 'Cadastrado no Vitus' ? '' : instructionParts[0]) : (medInfo?.description || '');
+    // Se houver mais partes, é o alarme. Guardamos para preservar se for o caso.
+    const alarmSuffix = instructionParts.length > 1 ? ' - ' + instructionParts.slice(1).join(' - ') : '';
+
+    const [name, setName] = useState(editMedication?.name || medInfo?.name || '');
+    const [dosage, setDosage] = useState(editMedication?.dosage || '');
+    const [instructions, setInstructions] = useState(initialDescription);
     const [reminderTime, setReminderTime] = useState('08:00');
     const [frequency, setFrequency] = useState('24');
     const [loading, setLoading] = useState(false);
-    const [image, setImage] = useState<string | null>(
-        medInfo?.image && medInfo.image.startsWith('http') ? medInfo.image : null
-    );
-    const [brand, setBrand] = useState(medInfo?.brand || '');
+
+    const initialImage = editMedication?.image_url || (medInfo?.image && medInfo.image.startsWith('http') ? medInfo.image : null);
+    const [image, setImage] = useState<string | null>(initialImage);
+
+    const [brand, setBrand] = useState(editMedication?.brand || medInfo?.brand || '');
     const [savedMedId, setSavedMedId] = useState<string | null>(null);
     const [showImageModal, setShowImageModal] = useState(false);
 
@@ -115,23 +125,41 @@ export const AddMedicationScreen = () => {
         }
         setLoading(true);
         try {
-            const { data, error } = await supabase.from('medications').insert([
-                {
-                    profile_id: session?.user?.id,
-                    name,
-                    dosage,
-                    brand,
-                    barcode: initialBarcode,
-                    instructions: instructions || 'Cadastrado no Vitus',
-                    image_url: image,
-                },
-            ]).select();
+            const descriptionToSave = instructions || 'Cadastrado no Vitus';
 
-            if (error) throw error;
+            const medData = {
+                profile_id: session?.user?.id,
+                name,
+                dosage,
+                brand,
+                barcode: initialBarcode,
+                // Se edição, preserva o sufixo de alarme se houver. Se novo, vai só a descrição.
+                instructions: editMedication ? (descriptionToSave + alarmSuffix) : descriptionToSave,
+                image_url: image,
+            };
 
-            if (data && data[0]) {
-                setSavedMedId(data[0].id);
-                Alert.alert('Sucesso!', 'Medicamento salvo! 🌿 Agora configure o alarme?');
+            if (editMedication) {
+                // UPDATE MODE
+                const { error } = await supabase
+                    .from('medications')
+                    .update(medData)
+                    .eq('id', editMedication.id);
+
+                if (error) throw error;
+
+                Alert.alert('Atualizado!', 'Medicamento atualizado com sucesso.');
+                navigation.goBack();
+            } else {
+                // INSERT MODE
+                const { data, error } = await supabase.from('medications').insert([medData]).select();
+
+                if (error) throw error;
+
+                if (data && data[0]) {
+                    setSavedMedId(data[0].id);
+                    // Não mostra alert aqui, deixa a UI fluir para configuração de alarme
+                    // Alert.alert('Sucesso!', 'Medicamento salvo! 🌿 Agora configure o alarme?');
+                }
             }
         } catch (error: any) {
             Alert.alert('Erro', error.message);
@@ -187,10 +215,10 @@ export const AddMedicationScreen = () => {
                                 <Ionicons name={savedMedId ? 'close' : 'chevron-back'} size={28} color={theme.colors.primary} />
                             </TouchableOpacity>
                             <Text style={styles.title}>
-                                {!savedMedId ? 'Novo Medicamento' : 'Configurar Alarme'}
+                                {editMedication ? 'Editar Medicamento' : (!savedMedId ? 'Novo Medicamento' : 'Configurar Alarme')}
                             </Text>
                             <Text style={styles.subtitle}>
-                                {!savedMedId ? 'Confirme os dados básicos.' : 'Agora agende seus lembretes.'}
+                                {editMedication ? 'Altere os dados abaixo.' : (!savedMedId ? 'Confirme os dados básicos.' : 'Agora agende seus lembretes.')}
                             </Text>
                         </View>
 
@@ -390,9 +418,9 @@ export const AddMedicationScreen = () => {
                                 </Card>
 
                                 <Button
-                                    title={loading ? 'Salvando...' : 'Salvar Medicamento'}
+                                    title={editMedication ? "Salvar Alterações" : "Próximo: Definir Alarme ->"}
                                     onPress={handleSaveMedication}
-                                    style={styles.saveButton}
+                                    loading={loading}
                                 />
                             </>
                         )}

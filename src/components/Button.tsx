@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator } from 'react-native';
 import { theme } from '../theme/theme';
 
 interface ButtonProps {
@@ -8,6 +8,8 @@ interface ButtonProps {
     type?: 'primary' | 'secondary' | 'danger';
     style?: ViewStyle;
     textStyle?: TextStyle;
+    loading?: boolean;
+    disabled?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -15,22 +17,36 @@ export const Button: React.FC<ButtonProps> = ({
     onPress,
     type = 'primary',
     style,
-    textStyle
+    textStyle,
+    loading = false,
+    disabled = false
 }) => {
+    const isPrimary = type === 'primary';
+    const textColor = isPrimary ? '#FFF' : (type === 'danger' ? theme.colors.alert : theme.colors.primary);
+
     return (
         <TouchableOpacity
-            style={[styles.button, styles[type], style]}
+            style={[
+                styles.button,
+                styles[type],
+                (disabled || loading) && styles.disabled,
+                style
+            ]}
             onPress={onPress}
             activeOpacity={0.8}
+            disabled={disabled || loading}
         >
-            <Text style={[
-                styles.text,
-                type === 'secondary' && { color: theme.colors.primary },
-                type === 'danger' && { color: theme.colors.alert },
-                textStyle
-            ]}>
-                {title}
-            </Text>
+            {loading ? (
+                <ActivityIndicator color={textColor} />
+            ) : (
+                <Text style={[
+                    styles.text,
+                    { color: textColor },
+                    textStyle
+                ]}>
+                    {title}
+                </Text>
+            )}
         </TouchableOpacity>
     );
 };
@@ -57,6 +73,9 @@ const styles = StyleSheet.create({
     },
     danger: {
         backgroundColor: '#FFF1F0', // Very light red tint
+    },
+    disabled: {
+        opacity: 0.6,
     },
     text: {
         color: '#FFFFFF',

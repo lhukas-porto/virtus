@@ -64,6 +64,7 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
         // We use multiple public, CORS-friendly sources to identify the medicine dynamically
         const sources = [
             `https://world.openfoodfacts.org/api/v2/product/${gtin}.json`,
+            `https://world.openbeautyfacts.org/api/v2/product/${gtin}.json`,
             `https://api.upcitemdb.com/prod/trial/lookup?upc=${gtin}`
         ];
 

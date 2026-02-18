@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { supabase } from '../services/supabase';
@@ -13,6 +13,23 @@ export const MedicationDetailScreen = () => {
 
     const [showImageModal, setShowImageModal] = useState(false);
     const [med, setMed] = useState(medication);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            const fetchLatestData = async () => {
+                const { data, error } = await supabase
+                    .from('medications')
+                    .select('*')
+                    .eq('id', medication.id)
+                    .single();
+
+                if (data && !error) {
+                    setMed(data);
+                }
+            };
+            fetchLatestData();
+        }, [medication.id])
+    );
 
     // Separa o resumo do sufixo de alarme (ex: "Analgésico - Diário das 08:00")
     const parts = (med.instructions || '').split(' - ');
@@ -81,13 +98,21 @@ export const MedicationDetailScreen = () => {
                             <Ionicons name="chevron-back" size={24} color={theme.colors.primary} />
                         </TouchableOpacity>
 
-                        {/* Botão deletar */}
-                        <TouchableOpacity
-                            style={styles.deleteBtn}
-                            onPress={handleDelete}
-                        >
-                            <Ionicons name="trash-outline" size={22} color={theme.colors.alert} />
-                        </TouchableOpacity>
+                        {/* Botões de Ação (Editar + Deletar) */}
+                        <View style={styles.headerActions}>
+                            <TouchableOpacity
+                                style={styles.headerBtn}
+                                onPress={() => navigation.navigate('AddMedication', { editMedication: med })}
+                            >
+                                <Ionicons name="create-outline" size={24} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.headerBtn}
+                                onPress={handleDelete}
+                            >
+                                <Ionicons name="trash-outline" size={24} color={theme.colors.alert} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     {/* Conteúdo */}
@@ -237,10 +262,14 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 3,
     },
-    deleteBtn: {
+    headerActions: {
         position: 'absolute',
         top: 16,
         right: 16,
+        flexDirection: 'row',
+        gap: 12,
+    },
+    headerBtn: {
         backgroundColor: '#FFF',
         borderRadius: 20,
         padding: 8,

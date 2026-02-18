@@ -136,6 +136,13 @@ export const ScannerScreen = () => {
                     </View>
                 </SafeAreaView>
             </CameraView>
+
+            {identifying && (
+                <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                    <Text style={styles.loadingText}>Buscando informações...</Text>
+                </View>
+            )}
         </View>
     );
 };

@@ -149,12 +149,21 @@ export const MedicationListScreen = () => {
                                                 ) : null}
                                             </View>
 
-                                            <TouchableOpacity
-                                                onPress={() => handleDelete(med.id, med.name)}
-                                                style={styles.deleteBtn}
-                                            >
-                                                <Ionicons name="trash-outline" size={22} color={theme.colors.alert} />
-                                            </TouchableOpacity>
+                                            <View style={styles.actionButtons}>
+                                                <TouchableOpacity
+                                                    onPress={() => navigation.navigate('AddMedication', { editMedication: med })}
+                                                    style={styles.actionBtn}
+                                                >
+                                                    <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    onPress={() => handleDelete(med.id, med.name)}
+                                                    style={styles.actionBtn}
+                                                >
+                                                    <Ionicons name="trash-outline" size={22} color={theme.colors.alert} />
+                                                </TouchableOpacity>
+                                            </View>
                                         </View>
                                     </Card>
                                 </TouchableOpacity>
@@ -276,7 +285,11 @@ const styles = StyleSheet.create({
         opacity: 0.5,
         marginTop: 2,
     },
-    deleteBtn: {
+    actionButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    actionBtn: {
         padding: 8,
     },
     center: {
