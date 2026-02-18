@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, Alert, Platform, ActivityIndicator, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Alert, Platform, ActivityIndicator, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
@@ -13,6 +14,7 @@ export const ScannerScreen = () => {
     const [permission, requestPermission] = useCameraPermissions();
     const navigation = useNavigation<any>();
     const [scanned, setScanned] = useState(false);
+    const [identifying, setIdentifying] = useState(false);
 
     useEffect(() => {
         if (permission && !permission.granted && permission.canAskAgain) {
@@ -55,8 +57,6 @@ export const ScannerScreen = () => {
             </SafeAreaView>
         );
     }
-
-    const [identifying, setIdentifying] = useState(false);
 
     const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
         if (scanned || identifying) return;
