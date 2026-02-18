@@ -107,13 +107,43 @@ export const MedicationListScreen = () => {
                             filteredMeds.map((med) => (
                                 <Card key={med.id} style={styles.medCard}>
                                     <View style={styles.medInfo}>
-                                        <View style={styles.iconBox}>
-                                            <Ionicons name="medical" size={24} color={theme.colors.primary} />
-                                        </View>
+                                        {/* Foto ou ícone */}
+                                        {med.image_url ? (
+                                            <Image
+                                                source={{ uri: med.image_url }}
+                                                style={styles.medThumb}
+                                                resizeMode="cover"
+                                            />
+                                        ) : (
+                                            <View style={styles.iconBox}>
+                                                <Ionicons name="medical" size={24} color={theme.colors.primary} />
+                                            </View>
+                                        )}
+
                                         <View style={{ flex: 1 }}>
+                                            {/* Nome */}
                                             <Text style={styles.medName}>{med.name}</Text>
-                                            <Text style={styles.medDetails}>{med.dosage} • {med.instructions || 'Sem instruções'}</Text>
+
+                                            {/* Laboratório + Dosagem */}
+                                            <View style={styles.metaRow}>
+                                                {med.brand ? (
+                                                    <View style={styles.brandBadge}>
+                                                        <Text style={styles.brandText}>{med.brand}</Text>
+                                                    </View>
+                                                ) : null}
+                                                {med.dosage ? (
+                                                    <Text style={styles.medDosage}>{med.dosage}</Text>
+                                                ) : null}
+                                            </View>
+
+                                            {/* Resumo breve (sem dados de alarme) */}
+                                            {med.description ? (
+                                                <Text style={styles.medSummary} numberOfLines={2}>
+                                                    {med.description}
+                                                </Text>
+                                            ) : null}
                                         </View>
+
                                         <TouchableOpacity
                                             onPress={() => handleDelete(med.id, med.name)}
                                             style={styles.deleteBtn}
@@ -279,5 +309,44 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
-    }
+    },
+    medThumb: {
+        width: 56,
+        height: 56,
+        borderRadius: 12,
+        marginRight: 16,
+        backgroundColor: '#F0F0F0',
+    },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 4,
+        flexWrap: 'wrap',
+    },
+    brandBadge: {
+        backgroundColor: theme.colors.primary + '15',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    brandText: {
+        color: theme.colors.primary,
+        fontSize: 11,
+        fontFamily: theme.fonts.bold,
+    },
+    medDosage: {
+        fontSize: 13,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.text,
+        opacity: 0.55,
+    },
+    medSummary: {
+        fontSize: 13,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.text,
+        opacity: 0.45,
+        marginTop: 4,
+        lineHeight: 18,
+    },
 });
