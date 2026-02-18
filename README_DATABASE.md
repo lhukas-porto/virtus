@@ -4,6 +4,7 @@ Para habilitar a consulta e o cache global de medicamentos (Feature de Inteligê
 
 1. `supabase/migrations/20260218_create_medication_catalog.sql` -> Cria a tabela de catálogo global.
 2. `supabase/migrations/20260218_allow_insert_catalog.sql` -> Permite que o aplicativo salve novos medicamentos encontrados na internet, populando o banco automaticamente.
+3. `supabase/migrations/20260218_seed_catalog.sql` -> Popula o banco com uma lista inicial de medicamentos populares (Dorflex, Dipirona, Neosaldina, etc.) para testes imediatos.
 
 ## Como funciona
 
