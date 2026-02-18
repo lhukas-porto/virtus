@@ -57,6 +57,16 @@
 
 ## Histórico de Sessões Recentes
 
+### Sessão 18/02/2026 - Tarde (Continuação 2)
+**Trabalho Realizado:**
+- **Edição de Medicamentos:** Implementada funcionalidade completa de edição de dados cadastrais (Nome, Dosagem, Marca, Foto).
+- **Scanner Inteligente 2.0:**
+  - Adicionada integração com API **EAN-Search** (configurável via `.env`).
+  - Adicionada integração com API **OpenBeautyFacts** para cosméticos.
+  - Feedback visual aprimorado ("Buscando informações...").
+- **Inteligência Coletiva:** Criado mecanismo de *Catálogo Global* (`medication_catalog`) no Supabase, onde medicamentos encontrados na internet são salvos automaticamente para consultas futuras de todos os usuários.
+- **UX/UI:** Melhorias no layout de botões de ação na lista e detalhes de medicamentos.
+
 ### Sessão 17/02/2026 - Noite
 **Trabalho Realizado:**
 - **Remoção de Gamificação:** Retirada a seção "Sua Jornada" para simplificar a UX conforme pedido do usuário.
