@@ -36,7 +36,9 @@ export const AddMedicationScreen = () => {
     const [reminderTime, setReminderTime] = useState('08:00');
     const [frequency, setFrequency] = useState('24'); // Default daily
     const [loading, setLoading] = useState(false);
-    const [image, setImage] = useState<string | null>(medInfo?.image || null);
+    const [image, setImage] = useState<string | null>(
+        medInfo?.image && medInfo.image.startsWith('http') ? medInfo.image : null
+    );
     const [brand, setBrand] = useState(medInfo?.brand || '');
     const [savedMedId, setSavedMedId] = useState<string | null>(null);
 
@@ -228,7 +230,11 @@ export const AddMedicationScreen = () => {
                                 <Card style={styles.discoveryCard}>
                                     <View style={styles.discoveryImageContainer}>
                                         {medInfo.image ? (
-                                            <Image source={{ uri: medInfo.image }} style={styles.discoveryImage} />
+                                            <Image
+                                                source={{ uri: medInfo.image }}
+                                                style={styles.discoveryImage}
+                                                onError={() => setImage(null)}
+                                            />
                                         ) : (
                                             <View style={styles.discoveryImagePlaceholder}>
                                                 <Ionicons name="medical" size={40} color={theme.colors.primary} />
@@ -243,6 +249,14 @@ export const AddMedicationScreen = () => {
                                     <View style={styles.discoveryContent}>
                                         <Text style={styles.discoveryLabel}>Identificamos para você:</Text>
                                         <Text style={styles.discoveryName}>{medInfo.name}</Text>
+                                        {!medInfo.image && (
+                                            <View style={styles.noImageHint}>
+                                                <Ionicons name="camera-outline" size={14} color={theme.colors.accent} />
+                                                <Text style={styles.noImageHintText}>
+                                                    Sem foto online — adicione uma abaixo ↓
+                                                </Text>
+                                            </View>
+                                        )}
                                     </View>
                                 </Card>
                             )}
@@ -356,7 +370,11 @@ export const AddMedicationScreen = () => {
                                     {image ? (
                                         <View>
                                             <View style={styles.imagePreviewContainer}>
-                                                <Image source={{ uri: image }} style={styles.imagePreview} />
+                                                <Image
+                                                    source={{ uri: image }}
+                                                    style={styles.imagePreview}
+                                                    onError={() => setImage(null)}
+                                                />
                                             </View>
                                             {/* Barra de ações abaixo da foto */}
                                             <View style={styles.photoActionBar}>
@@ -370,6 +388,14 @@ export const AddMedicationScreen = () => {
                                                 <View style={styles.photoActionDivider} />
                                                 <TouchableOpacity
                                                     style={styles.photoActionBtn}
+                                                    onPress={takePhoto}
+                                                >
+                                                    <Ionicons name="camera-outline" size={18} color={theme.colors.primary} />
+                                                    <Text style={styles.photoActionText}>Substituir</Text>
+                                                </TouchableOpacity>
+                                                <View style={styles.photoActionDivider} />
+                                                <TouchableOpacity
+                                                    style={styles.photoActionBtn}
                                                     onPress={() => setImage(null)}
                                                 >
                                                     <Ionicons name="trash-outline" size={18} color={theme.colors.alert} />
@@ -379,7 +405,7 @@ export const AddMedicationScreen = () => {
                                         </View>
                                     ) : (
                                         <View style={styles.photoActions}>
-                                            <TouchableOpacity style={[styles.photoBtn, { backgroundColor: theme.colors.primary }]} onPress={takePhoto}>
+                                            <TouchableOpacity style={[styles.photoBtn, { backgroundColor: theme.colors.primary, flex: 2 }]} onPress={takePhoto}>
                                                 <Ionicons name="camera" size={24} color="#FFF" />
                                                 <Text style={[styles.photoBtnText, { color: '#FFF' }]}>Tirar Foto</Text>
                                             </TouchableOpacity>
@@ -813,5 +839,21 @@ const styles = StyleSheet.create({
         color: theme.colors.primary,
         fontSize: 10,
         fontFamily: theme.fonts.bold,
+    },
+    noImageHint: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        marginTop: 8,
+        backgroundColor: theme.colors.accent + '15',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    noImageHintText: {
+        fontSize: 12,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.accent,
+        flex: 1,
     },
 });
