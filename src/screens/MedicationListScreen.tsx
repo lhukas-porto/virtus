@@ -105,54 +105,59 @@ export const MedicationListScreen = () => {
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent}>
                         {filteredMeds.length > 0 ? (
                             filteredMeds.map((med) => (
-                                <Card key={med.id} style={styles.medCard}>
-                                    <View style={styles.medInfo}>
-                                        {/* Foto ou ícone */}
-                                        {med.image_url ? (
-                                            <Image
-                                                source={{ uri: med.image_url }}
-                                                style={styles.medThumb}
-                                                resizeMode="cover"
-                                            />
-                                        ) : (
-                                            <View style={styles.iconBox}>
-                                                <Ionicons name="medical" size={24} color={theme.colors.primary} />
-                                            </View>
-                                        )}
+                                <TouchableOpacity
+                                    key={med.id}
+                                    onPress={() => navigation.navigate('MedicationDetail', { medication: med })}
+                                    activeOpacity={0.85}
+                                >
+                                    <Card style={styles.medCard}>
+                                        <View style={styles.medInfo}>
+                                            {/* Foto ou ícone */}
+                                            {med.image_url ? (
+                                                <Image
+                                                    source={{ uri: med.image_url }}
+                                                    style={styles.medThumb}
+                                                    resizeMode="cover"
+                                                />
+                                            ) : (
+                                                <View style={styles.iconBox}>
+                                                    <Ionicons name="medical" size={24} color={theme.colors.primary} />
+                                                </View>
+                                            )}
 
-                                        <View style={{ flex: 1 }}>
-                                            {/* Nome */}
-                                            <Text style={styles.medName}>{med.name}</Text>
+                                            <View style={{ flex: 1 }}>
+                                                {/* Nome */}
+                                                <Text style={styles.medName}>{med.name}</Text>
 
-                                            {/* Laboratório + Dosagem */}
-                                            <View style={styles.metaRow}>
-                                                {med.brand ? (
-                                                    <View style={styles.brandBadge}>
-                                                        <Text style={styles.brandText}>{med.brand}</Text>
-                                                    </View>
+                                                {/* Laboratório + Dosagem */}
+                                                <View style={styles.metaRow}>
+                                                    {med.brand ? (
+                                                        <View style={styles.brandBadge}>
+                                                            <Text style={styles.brandText}>{med.brand}</Text>
+                                                        </View>
+                                                    ) : null}
+                                                    {med.dosage ? (
+                                                        <Text style={styles.medDosage}>{med.dosage}</Text>
+                                                    ) : null}
+                                                </View>
+
+                                                {/* Resumo breve (sem dados de alarme) */}
+                                                {med.instructions && med.instructions !== 'Cadastrado no Vitus' ? (
+                                                    <Text style={styles.medSummary} numberOfLines={2}>
+                                                        {med.instructions.split(' - ')[0]}
+                                                    </Text>
                                                 ) : null}
-                                                {med.dosage ? (
-                                                    <Text style={styles.medDosage}>{med.dosage}</Text>
-                                                ) : null}
                                             </View>
 
-                                            {/* Resumo breve (sem dados de alarme) */}
-                                            {med.instructions && med.instructions !== 'Cadastrado no Vitus' ? (
-                                                <Text style={styles.medSummary} numberOfLines={2}>
-                                                    {/* Remove o sufixo de alarme que é adicionado depois (ex: " - Diário das 08:00") */}
-                                                    {med.instructions.split(' - ')[0]}
-                                                </Text>
-                                            ) : null}
+                                            <TouchableOpacity
+                                                onPress={() => handleDelete(med.id, med.name)}
+                                                style={styles.deleteBtn}
+                                            >
+                                                <Ionicons name="trash-outline" size={22} color={theme.colors.alert} />
+                                            </TouchableOpacity>
                                         </View>
-
-                                        <TouchableOpacity
-                                            onPress={() => handleDelete(med.id, med.name)}
-                                            style={styles.deleteBtn}
-                                        >
-                                            <Ionicons name="trash-outline" size={22} color={theme.colors.alert} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </Card>
+                                    </Card>
+                                </TouchableOpacity>
                             ))
                         ) : (
                             <View style={styles.emptyContainer}>

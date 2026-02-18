@@ -14,6 +14,7 @@ import { HealthLogScreen } from '../screens/HealthLogScreen';
 import { AddMedicationScreen } from '../screens/AddMedicationScreen';
 import { ScannerScreen } from '../screens/ScannerScreen';
 import { MedicationListScreen } from '../screens/MedicationListScreen';
+import { MedicationDetailScreen } from '../screens/MedicationDetailScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 
 const Tab = createBottomTabNavigator();
@@ -79,6 +80,7 @@ export default function RootNavigation() {
                         <Stack.Screen name="HealthLog" component={HealthLogScreen} />
                         <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
                         <Stack.Screen name="Scanner" component={ScannerScreen} />
+                        <Stack.Screen name="MedicationDetail" component={MedicationDetailScreen} />
                     </>
                 ) : (
                     <Stack.Screen name="Login" component={LoginScreen} />
