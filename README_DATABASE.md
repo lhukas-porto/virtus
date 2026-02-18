@@ -8,17 +8,32 @@ Para habilitar a consulta e o cache global de medicamentos (Feature de Inteligê
 
 ## Como popular com TODOS os medicamentos da ANVISA (20.000+)
 
-Para ter um banco de dados completo de medicamentos brasileiros, siga os passos abaixo:
+Para ter um banco de dados completo, siga os passos abaixo:
+
+### Opção 1: Node.js (Recomendada)
 
 1.  Baixe a **"Lista de Preços de Medicamentos"** mais recente no site da ANVISA:
     [https://www.gov.br/anvisa/pt-br/assuntos/medicamentos/cmed/precos](https://www.gov.br/anvisa/pt-br/assuntos/medicamentos/cmed/precos)
     *   Procure pelo arquivo XLS/XLSX "Lista de Preços Fábrica e Máximos ao Consumidor".
 2.  Salve o arquivo como `medicamentos.xlsx` na pasta raiz do projeto Vitus.
-3.  Instale as dependências Python necessárias (se não tiver Python, instale-o primeiro):
+3.  Instale a dependência necessária:
+    ```bash
+    npm install xlsx
+    ```
+4.  Execute o script:
+    ```bash
+    node scripts/generate_catalog_node.js
+    ```
+5.  O script criará o arquivo `supabase/migrations/20260218_seed_catalog_massive.sql`. Copie e execute no Supabase SQL Editor.
+
+### Opção 2: Python
+
+1.  Siga os passos 1 e 2 acima.
+2.  Instale as dependências:
     ```bash
     pip install pandas openpyxl
     ```
-4.  Execute o script gerador:
+3.  Execute o script:
     ```bash
     python scripts/generate_catalog_sql.py
     ```
