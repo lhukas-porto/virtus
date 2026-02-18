@@ -32,6 +32,18 @@ export const AddMedicationScreen = () => {
     const [frequency, setFrequency] = useState('24'); // Default daily
     const [loading, setLoading] = useState(false);
 
+    const handleTimeChange = (text: string) => {
+        // Remove anything not digit
+        let cleaned = text.replace(/[^0-9]/g, '');
+        if (cleaned.length > 4) cleaned = cleaned.slice(0, 4);
+
+        let formatted = cleaned;
+        if (cleaned.length > 2) {
+            formatted = `${cleaned.slice(0, 2)}:${cleaned.slice(2)}`;
+        }
+        setReminderTime(formatted);
+    };
+
     // For selecting from Armenian (My Cupboard)
     const [myMedications, setMyMedications] = useState<any[]>([]);
     const [showMedSelector, setShowMedSelector] = useState(false);
@@ -184,9 +196,10 @@ export const AddMedicationScreen = () => {
                                 <TextInput
                                     style={styles.input}
                                     value={reminderTime}
-                                    onChangeText={setReminderTime}
+                                    onChangeText={handleTimeChange}
                                     placeholder="08:00"
-                                    keyboardType="numbers-and-punctuation"
+                                    keyboardType="number-pad"
+                                    maxLength={5}
                                 />
                             </View>
                             <View style={{ justifyContent: 'center', paddingTop: 20 }}>

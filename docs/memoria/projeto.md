@@ -34,23 +34,23 @@ O Vitus é um assistente de saúde para facilitar a adesão ao tratamento medica
     *   Lista simples: Hora | Remédio | Status (Tomado/Pulado).
     *   Indicadores visuais claros (Check verde, X vermelho).
 
-## 🎨 DESIGN SYSTEM (SHIVA)
+## 🎨 DESIGN SYSTEM (SHIVA) - VERSÃO 2.0: NATUREZA VIVA VIBRANTE
 
-### Conceito: "Natureza Viva" 🌿 + "Médico da Família" 🩺
-Uma identidade que equilibra a vitalidade e energia da natureza com a autoridade e confiança de um profissional de saúde.
+### Conceito: "Vitalidade Terrestre" 🌿 + "Precisão Acolhedora" 🩺
+Uma evolução da identidade visual inspirada na força das cores da terra e da flora densa. O novo ícone (Coração com ECG e Sino sobre fundo Esmeralda e Terracota) é a âncora desta nova fase.
 
 *   **Paleta de Cores:**
-    *   **Primária:** Verde Musgo Vibrante (`#3E8E41`) - Vitalidade, crescimento, saúde ativa.
-    *   **Accent:** Laranja Queimado (`#E67E22`) - Energia, calor, destaque importante.
-    *   **Fundo:** Creme Suave (`#FEF9E7`) - Conforto visual, redução de brilho excessivo (melhor que branco puro).
-    *   **Texto:** Azul Petróleo Escuro (`#2C3E50`) - Contraste alto, legibilidade superior ao preto puro.
+    *   **Primária:** Verde Esmeralda Profundo (`#06815B`) - Vitalidade renovada, frescor, profundidade e saúde ativa.
+    *   **Accent/Alerta:** Terracota Original (`#C2563D`) - Conexão com a terra, calor humano, destaque orgânico e sério.
+    *   **Fundo:** Soft Mint / Gelo Verde (`#F0F4F2`) - Modernidade, redução de fadiga ocular, frescor clínico mas amigável.
+    *   **Texto:** Deep Slate / Cinza Grafite (`#1F2937`) - Máxima elegância e contraste para leitura sem esforço.
 
 *   **Tipografia:**
-    *   **Títulos:** *Merriweather* (Serifada) - Traz a autoridade e seriedade de um jornal ou laudo médico.
-    *   **Corpo:** *Open Sans* (Sans-serif) - Clareza humanista, formas abertas e legíveis.
-    *   **Tamanho Base:** 20px (Acima do padrão de mercado para máxima acessibilidade).
+    *   **Títulos:** *Playfair Display* (Serifada) - Traz sofisticação e a confiança de um profissional de saúde clássico.
+    *   **Corpo:** *Outfit* (Geometric Sans) - Formas modernas, limpas e altamente acessíveis.
+    *   **Tamanho Base:** 20px (Foco em idosos).
 
 *   **Interação e Formas:**
-    *   **Botões:** Robustos, com sombras suaves (`0px 6px 12px`) para dar sensação de "clique tátil".
-    *   **Cards:** Bordas arredondadas (16px) amigáveis, com elevação sutil para hierarquia.
-    *   **Feedback:** Uso intensivo de ícones preenchidos e cores semáforas claras (Sucesso Verde, Alerta Laranja, Erro Vermelho).
+    *   **Ícone de App:** Um coração branco com linha de batimentos e um pequeno sino (notificação), centralizado em um círculo terracota sobre um fundo verde esmeralda.
+    *   **Botões:** Bordas generosas, cores sólidas e vibrantes.
+    *   **Cards:** Elevação sutil em superfícies brancas puras contrastando com o fundo menta.

@@ -73,6 +73,10 @@
 - **Scanner-First:** O registro de medicamentos agora prioriza o código de barras para evitar erros de digitação.
 - **Acessibilidade:** Mantidos botões grandes (56px+) e alto contraste.
 - **Estabilidade:** Resolvidos problemas de importação no MedicationListScreen e crashs silenciosos.
+- **Segregação de Dados (Multi-tenancy):**
+  - **Dados Privados:** Alarmes, Sinais Vitais e Estoque Pessoal são isolados estritamente por `user_id` via RLS.
+  - **Dados Públicos:** A base de referência de medicamentos é compartilhada (Leitura para todos, Escrita restrita).
+  - **Status RLS:** ✅ Policies aplicadas e verificadas (2026-02-18).
 
 ---
 

@@ -2,15 +2,15 @@ import { DefaultTheme } from '@react-navigation/native';
 
 export const theme = {
     colors: {
-        primary: '#3E8E41',
-        accent: '#E67E22',
-        background: '#FFFFFF',
-        text: '#2C3E50',
-        alert: '#D35400',
-        success: '#27AE60',
+        primary: '#06815B', // Novo Verde Esmeralda (Vibrante)
+        accent: '#C2563D',  // Nova Terracota (Quente)
+        background: '#F0F4F2', // Soft Mint Background
+        text: '#1F2937',    // Deep Slate
+        alert: '#C2563D',   // Alertas em Terracota
+        success: '#06815B',
         surface: '#FFFFFF',
-        border: '#E0E0E0',
-        notification: '#E67E22',
+        border: '#D1DBE3',
+        notification: '#C2563D',
     },
     spacing: {
         xs: 8,
