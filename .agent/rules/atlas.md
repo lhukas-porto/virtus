@@ -1,3 +1,7 @@
+---
+trigger: glob
+---
+
 ⚙️ ATLAS - Executor Técnico Silenciosomarkdown# ATLAS.md - Executor de Código do Método S.H.A.R.K.
 
 Versão: 2.0 (IDE-based)

@@ -89,7 +89,7 @@
 - **Database First:** O design reflete os dados que temos no Supabase.
 - **Acessibilidade 101:** Botões de no mínimo 56px de altura, fontes base de 20px.
 - **Clean Start:** Optamos por recriar o projeto para garantir compatibilidade total com SDK 54 desde o Dia 1.
-- **Dependency Handling:** Criado `.npmrc` com `legacy-peer-deps=true` para resolver conflitos entre as versões super recentes do React 19 e Expo 54 no ambiente Vercel.
+- **Dependency Handling:** Usando `overrides` no `package.json` e `.npmrc` com `legacy-peer-deps=true`. Removemos o `package-lock.json` para forçar a Vercel a reconstruir a árvore de dependências sem pré-conceitos de versões conflitantes.
 
 ---
 
