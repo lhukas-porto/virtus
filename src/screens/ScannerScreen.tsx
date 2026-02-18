@@ -14,6 +14,12 @@ export const ScannerScreen = () => {
     const navigation = useNavigation<any>();
     const [scanned, setScanned] = useState(false);
 
+    useEffect(() => {
+        if (permission && !permission.granted && permission.canAskAgain) {
+            requestPermission();
+        }
+    }, [permission]);
+
     if (!permission) {
         // Camera permissions are still loading.
         return <View style={styles.container} />;
@@ -92,9 +98,11 @@ export const ScannerScreen = () => {
         <View style={styles.container}>
             <CameraView
                 style={StyleSheet.absoluteFillObject}
+                facing="back"
                 onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                onMountError={(error) => Alert.alert("Câmera", "Não foi possível iniciar a câmera: " + error.message)}
                 barcodeScannerSettings={{
-                    barcodeTypes: ["qr", "ean13", "ean8", "code128", "code39", "upc_a", "upc_e"],
+                    barcodeTypes: ["ean13", "ean8", "qr"],
                 }}
             >
                 <SafeAreaView style={styles.overlay}>

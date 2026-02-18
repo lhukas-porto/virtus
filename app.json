@@ -20,7 +20,10 @@
                 "foregroundImage": "./assets/adaptive-icon.png",
                 "backgroundColor": "#FFFFFF"
             },
-            "package": "com.lucas.vitus"
+            "package": "com.lucas.vitus",
+            "permissions": [
+                "CAMERA"
+            ]
         },
         "web": {
             "favicon": "./assets/favicon.png",
