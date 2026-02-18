@@ -68,13 +68,19 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
             `https://api.upcitemdb.com/prod/trial/lookup?upc=${gtin}`
         ];
 
+        // Add EAN-Search API if token is configured
+        const eanSearchToken = process.env.EXPO_PUBLIC_EAN_SEARCH_TOKEN;
+        if (eanSearchToken) {
+            sources.push(`https://api.ean-search.org/api?token=${eanSearchToken}&op=barcode-lookup&ean=${gtin}&format=json`);
+        }
+
         for (const url of sources) {
             try {
                 const response = await fetch(url, { method: 'GET' });
                 if (response.ok) {
                     const data = await response.json();
 
-                    // Logic for OpenFoodFacts
+                    // Logic for OpenFoodFacts / OpenBeautyFacts
                     if (data.product && data.product.product_name) {
                         return {
                             name: data.product.product_name,
@@ -92,6 +98,17 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
                             brand: item.brand || '',
                             image: item.images && item.images.length > 0 ? item.images[0] : undefined,
                             description: 'Encontrado em base internacional de produtos.'
+                        };
+                    }
+
+                    // Logic for EAN-Search
+                    if (Array.isArray(data) && data.length > 0 && data[0].name) {
+                        const item = data[0];
+                        return {
+                            name: item.name,
+                            brand: '', // EAN-Search basic response might not split brand
+                            image: undefined, // Basic tier might not include image URL in JSON
+                            description: 'Identificado via EAN-Search API.'
                         };
                     }
                 }
