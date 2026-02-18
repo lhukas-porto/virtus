@@ -89,7 +89,7 @@
 - **Database First:** O design reflete os dados que temos no Supabase.
 - **Acessibilidade 101:** Botões de no mínimo 56px de altura, fontes base de 20px.
 - **Clean Start:** Optamos por recriar o projeto para garantir compatibilidade total com SDK 54 desde o Dia 1.
-- **Dependency Handling:** Usando `overrides` no `package.json` e `.npmrc` com `legacy-peer-deps=true`. Removemos o `package-lock.json` para forçar a Vercel a reconstruir a árvore de dependências sem pré-conceitos de versões conflitantes.
+- **Dependency Handling:** Abandonada a estratégia de `overrides` (que causou conflitos diretos) em favor do uso exclusivo de `legacy-peer-deps` via `.npmrc` e `installCommand` no `vercel.json`. O `package-lock.json` continua removido para garantir uma instalação limpa na Vercel.
 
 ---
 
