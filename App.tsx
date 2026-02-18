@@ -12,6 +12,8 @@ import {
     PlayfairDisplay_700Bold
 } from '@expo-google-fonts/playfair-display';
 
+import { View, Text } from 'react-native';
+
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
@@ -30,7 +32,11 @@ export default function App() {
     }, [fontsLoaded]);
 
     if (!fontsLoaded) {
-        return null;
+        return (
+            <View style={{ flex: 1, height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
+                <Text style={{ fontSize: 20, color: '#3E8E41' }}>Carregando Vitus...</Text>
+            </View>
+        );
     }
 
     return (
