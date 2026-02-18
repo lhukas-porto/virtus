@@ -1,5 +1,4 @@
 {
-    "framework": "expo",
     "outputDirectory": "dist",
     "rewrites": [
         {
