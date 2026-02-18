@@ -1,6 +1,6 @@
 {
     "outputDirectory": "dist",
-    "installCommand": "npm install --legacy-peer-deps --no-audit",
+    "installCommand": "npm install --force --no-audit",
     "rewrites": [
         {
             "source": "/(.*)",
