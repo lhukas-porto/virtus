@@ -17,7 +17,7 @@
 
 - [x] Configuração do Ambiente (.env + Supabase Client)
 - [x] Definição do Schema de Banco de Dados (SQL no Supabase)
-- [x] Setup de Navegação (Navegação de Autenticação e Tabs)
+- [x] Setup de Navegação (Abas separadas para Medicamentos e Saúde)
 - [x] Implementação de Login/Cadastro (Natureza Viva style)
 - [x] Estrutura Base das Telas (Home e Perfil)
 - [x] Aplicação Global do Design System

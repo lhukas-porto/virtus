@@ -24,7 +24,8 @@ function AppTabs() {
             screenOptions={({ route }) => ({
                 tabBarIcon: ({ focused, color, size }) => {
                     let iconName;
-                    if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+                    if (route.name === 'Alarmes') iconName = focused ? 'alarm' : 'alarm-outline';
+                    else if (route.name === 'Monitoramento') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
                     else if (route.name === 'Scanner') iconName = focused ? 'barcode' : 'barcode-outline';
                     else if (route.name === 'Perfil') iconName = focused ? 'person' : 'person-outline';
 
@@ -33,10 +34,20 @@ function AppTabs() {
                 tabBarActiveTintColor: theme.colors.primary,
                 tabBarInactiveTintColor: 'gray',
                 headerShown: false,
-                tabBarStyle: { height: 65, paddingBottom: 10, paddingTop: 5 },
+                tabBarStyle: { height: 75, paddingBottom: 15, paddingTop: 10 },
+                tabBarLabelStyle: { fontSize: 12, fontWeight: '600' }
             })}
         >
-            <Tab.Screen name="Home" component={HomeScreen} />
+            <Tab.Screen
+                name="Alarmes"
+                component={HomeScreen}
+                options={{ tabBarLabel: 'Medicamentos' }}
+            />
+            <Tab.Screen
+                name="Monitoramento"
+                component={HealthLogScreen}
+                options={{ tabBarLabel: 'Saúde' }}
+            />
             <Tab.Screen name="Scanner" component={ScannerScreen} />
             <Tab.Screen name="Perfil" component={ProfileScreen} />
         </Tab.Navigator>
