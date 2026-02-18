@@ -22,42 +22,6 @@ export const ScannerScreen = () => {
         }
     }, [permission]);
 
-    if (!permission) {
-        // Camera permissions are still loading.
-        return <View style={styles.container} />;
-    }
-
-    if (!permission.granted) {
-        // Camera permissions are not granted yet.
-        return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.permissionHeader}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.permissionBackBtn}>
-                        <Ionicons name="chevron-back" size={28} color={theme.colors.primary} />
-                    </TouchableOpacity>
-                </View>
-                <View style={styles.permissionContent}>
-                    <Ionicons name="camera-outline" size={80} color={theme.colors.primary} />
-                    <Text style={styles.permissionTitle}>Acesso à Câmera</Text>
-                    <Text style={styles.permissionSubtitle}>
-                        Precisamos da sua câmera para que a "Lupa Mágica" possa ler os seus remédios.
-                    </Text>
-                    <Button
-                        title="Permitir Câmera"
-                        onPress={requestPermission}
-                        style={styles.permissionButton}
-                    />
-                    <Button
-                        title="Agora não"
-                        onPress={() => navigation.goBack()}
-                        type="secondary"
-                        style={styles.permissionSecondaryBtn}
-                    />
-                </View>
-            </SafeAreaView>
-        );
-    }
-
     const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
         if (scanned || identifying) return;
         setIdentifying(true);
@@ -94,6 +58,40 @@ export const ScannerScreen = () => {
         }
     };
 
+    if (!permission) {
+        return <View style={styles.container} />;
+    }
+
+    if (!permission.granted) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.permissionHeader}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.permissionBackBtn}>
+                        <Ionicons name="chevron-back" size={28} color={theme.colors.primary} />
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.permissionContent}>
+                    <Ionicons name="camera-outline" size={80} color={theme.colors.primary} />
+                    <Text style={styles.permissionTitle}>Acesso à Câmera</Text>
+                    <Text style={styles.permissionSubtitle}>
+                        Precisamos da sua câmera para que o leitor possa identificar os seus remédios.
+                    </Text>
+                    <Button
+                        title="Permitir Câmera"
+                        onPress={requestPermission}
+                        style={styles.permissionButton}
+                    />
+                    <Button
+                        title="Agora não"
+                        onPress={() => navigation.goBack()}
+                        type="secondary"
+                        style={styles.permissionSecondaryBtn}
+                    />
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <View style={styles.container}>
             <CameraView
@@ -107,7 +105,7 @@ export const ScannerScreen = () => {
             >
                 <SafeAreaView style={styles.overlay}>
                     <View style={styles.topBar}>
-                        <Text style={styles.scannerTitle}>Lupa Mágica 🔍</Text>
+                        {/* Removido Título Lupa Mágica */}
                     </View>
 
                     <View style={styles.scannerContainer}>
