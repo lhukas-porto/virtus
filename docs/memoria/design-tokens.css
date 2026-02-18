@@ -1,0 +1,18 @@
+:root {
+    --color-primary: #3E8E41;
+    --color-accent: #E67E22;
+    --color-background: #FEF9E7;
+    --color-text: #2C3E50;
+    --color-alert: #D35400;
+    --color-success: #27AE60;
+    --color-surface: #FFFFFF;
+    
+    --font-size-base: 20px;
+    --font-weight-heading: bold;
+    --font-family-heading: 'Merriweather', serif;
+    --font-family-body: 'Open Sans', sans-serif;
+    
+    --border-radius: 16px;
+    --box-shadow-button: 0px 6px 12px rgba(62, 142, 65, 0.3);
+    --box-shadow-card: 0px 4px 6px -1px rgba(0, 0, 0, 0.1), 0px 2px 4px -1px rgba(0, 0, 0, 0.06);
+}

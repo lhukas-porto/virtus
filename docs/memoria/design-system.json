@@ -1,0 +1,25 @@
+{
+    "project_name": "Vitus",
+    "theme": {
+        "colors": {
+            "primary": "#3E8E41",
+            "accent": "#E67E22",
+            "background": "#FEF9E7",
+            "text": "#2C3E50",
+            "alert": "#D35400",
+            "success": "#27AE60",
+             "surface": "#FFFFFF"
+        },
+        "typography": {
+            "base_size": "20px",
+            "heading_weight": "bold",
+            "font_family_heading": "Merriweather",
+            "font_family_body": "Open Sans"
+        },
+        "components": {
+            "border_radius": "16px",
+            "button_shadow": "0px 6px 12px rgba(62, 142, 65, 0.3)",
+             "card_shadow": "0px 4px 6px -1px rgba(0, 0, 0, 0.1), 0px 2px 4px -1px rgba(0, 0, 0, 0.06)"
+        }
+    }
+}
