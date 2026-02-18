@@ -73,12 +73,13 @@
 - Criação do asbuilt.md e Plano de Tarefas (Hades)
 - Migração Completa para **Expo SDK 54** (React 19 / RN 0.81)
 - **Reboot do Projeto:** Limpeza e recriação total para consistência.
-- **Commit Inicial Local:** Todos os arquivos base comissionados localmente.
+- **Sincronização GitHub:** Todos os arquivos base comissionados e empurrados para `main`.
+- **Deploy Vercel:** Configurações de build e rewrites aplicadas (Link oficial ativo).
 
 **Próximos Passos:**
-- Sincronização com GitHub (Push pendente de autenticação)
-- Inicializar Supabase e Navegação
-- Desenvolver Diário de Saúde
+- Fase 05: Relatórios e Polimento
+- Implementar Geração de PDF (Cartão de Saúde)
+- Revisão de Acessibilidade (WCAG)
 
 ---
 
@@ -88,6 +89,7 @@
 - **Database First:** O design reflete os dados que temos no Supabase.
 - **Acessibilidade 101:** Botões de no mínimo 56px de altura, fontes base de 20px.
 - **Clean Start:** Optamos por recriar o projeto para garantir compatibilidade total com SDK 54 desde o Dia 1.
+- **Dependency Handling:** Criado `.npmrc` com `legacy-peer-deps=true` para resolver conflitos entre as versões super recentes do React 19 e Expo 54 no ambiente Vercel.
 
 ---
 
