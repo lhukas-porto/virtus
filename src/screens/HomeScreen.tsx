@@ -149,8 +149,8 @@ export const HomeScreen = () => {
 
                 {/* Single Clean Add Button */}
                 <Button
-                    title="+ Adicionar Novo Alarme"
-                    onPress={() => navigation.navigate('Scanner')}
+                    title="+ Configurar Novo Alarme"
+                    onPress={() => navigation.navigate('AddMedication')}
                     style={styles.mainAddButton}
                 />
             </ScrollView>
