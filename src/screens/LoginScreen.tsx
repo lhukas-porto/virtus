@@ -118,7 +118,7 @@ export const LoginScreen = () => {
                         style={styles.input}
                         value={password}
                         onChangeText={setPassword}
-                        placeholder="Sua senha secreta"
+                        placeholder="Sua senha"
                         secureTextEntry
                     />
 
@@ -129,7 +129,7 @@ export const LoginScreen = () => {
                     />
 
                     <Button
-                        title="Criar Nova Conta"
+                        title="Criar nova conta"
                         onPress={handleSignUp}
                         type="secondary"
                         style={styles.signupButton}

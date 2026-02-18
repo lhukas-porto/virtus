@@ -23,6 +23,11 @@ export const ScannerScreen = () => {
         // Camera permissions are not granted yet.
         return (
             <SafeAreaView style={styles.container}>
+                <View style={styles.permissionHeader}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.permissionBackBtn}>
+                        <Ionicons name="chevron-back" size={28} color={theme.colors.primary} />
+                    </TouchableOpacity>
+                </View>
                 <View style={styles.permissionContent}>
                     <Ionicons name="camera-outline" size={80} color={theme.colors.primary} />
                     <Text style={styles.permissionTitle}>Acesso à Câmera</Text>
@@ -33,6 +38,12 @@ export const ScannerScreen = () => {
                         title="Permitir Câmera"
                         onPress={requestPermission}
                         style={styles.permissionButton}
+                    />
+                    <Button
+                        title="Agora não"
+                        onPress={() => navigation.goBack()}
+                        type="secondary"
+                        style={styles.permissionSecondaryBtn}
                     />
                 </View>
             </SafeAreaView>
@@ -143,6 +154,21 @@ const styles = StyleSheet.create({
         padding: 40,
         backgroundColor: theme.colors.background,
     },
+    permissionHeader: {
+        position: 'absolute',
+        top: 10,
+        left: 0,
+        right: 0,
+        padding: 20,
+        zIndex: 10,
+    },
+    permissionBackBtn: {
+        width: 44,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: -10,
+    },
     permissionTitle: {
         fontSize: 28,
         fontFamily: theme.fonts.heading,
@@ -160,6 +186,10 @@ const styles = StyleSheet.create({
     },
     permissionButton: {
         marginTop: 32,
+        width: '100%',
+    },
+    permissionSecondaryBtn: {
+        marginTop: 12,
         width: '100%',
     },
     overlay: {
