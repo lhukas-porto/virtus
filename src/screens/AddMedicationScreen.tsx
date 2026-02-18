@@ -322,9 +322,9 @@ export const AddMedicationScreen = () => {
 
                                 {/* Campo Resumo / Indicação */}
                                 <View style={styles.inputGroup}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
-                                        <Text style={styles.label}>Resumo / Indicação</Text>
-                                        {medInfo?.description ? (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                        <Text style={[styles.label, { marginBottom: 0 }]}>Resumo / Indicação</Text>
+                                        {instructions ? (
                                             <View style={styles.autoBadge}>
                                                 <Ionicons name="sparkles" size={10} color={theme.colors.primary} />
                                                 <Text style={styles.autoText}>Auto</Text>
@@ -345,7 +345,7 @@ export const AddMedicationScreen = () => {
                                 {/* Campos de Foto */}
                                 <View style={styles.inputGroup}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                        <Text style={styles.label}>Foto do Medicamento</Text>
+                                        <Text style={[styles.label, { marginBottom: 0 }]}>Foto do Medicamento</Text>
                                         {!image && (
                                             <View style={styles.warningBadge}>
                                                 <Text style={styles.warningText}>Recomendado</Text>
@@ -354,17 +354,34 @@ export const AddMedicationScreen = () => {
                                     </View>
 
                                     {image ? (
-                                        <View style={styles.imagePreviewContainer}>
-                                            <Image source={{ uri: image }} style={styles.imagePreview} />
-                                            <TouchableOpacity style={styles.removeImageBtn} onPress={() => setImage(null)}>
-                                                <Ionicons name="close-circle" size={24} color={theme.colors.alert} />
-                                            </TouchableOpacity>
+                                        <View>
+                                            <View style={styles.imagePreviewContainer}>
+                                                <Image source={{ uri: image }} style={styles.imagePreview} />
+                                            </View>
+                                            {/* Barra de ações abaixo da foto */}
+                                            <View style={styles.photoActionBar}>
+                                                <TouchableOpacity
+                                                    style={styles.photoActionBtn}
+                                                    onPress={() => Linking.openURL(image)}
+                                                >
+                                                    <Ionicons name="expand-outline" size={18} color={theme.colors.primary} />
+                                                    <Text style={styles.photoActionText}>Ampliar</Text>
+                                                </TouchableOpacity>
+                                                <View style={styles.photoActionDivider} />
+                                                <TouchableOpacity
+                                                    style={styles.photoActionBtn}
+                                                    onPress={() => setImage(null)}
+                                                >
+                                                    <Ionicons name="trash-outline" size={18} color={theme.colors.alert} />
+                                                    <Text style={[styles.photoActionText, { color: theme.colors.alert }]}>Apagar</Text>
+                                                </TouchableOpacity>
+                                            </View>
                                         </View>
                                     ) : (
                                         <View style={styles.photoActions}>
                                             <TouchableOpacity style={[styles.photoBtn, { backgroundColor: theme.colors.primary }]} onPress={takePhoto}>
                                                 <Ionicons name="camera" size={24} color="#FFF" />
-                                                <Text style={[styles.photoBtnText, { color: '#FFF' }]}>Tirar Foto Agora</Text>
+                                                <Text style={[styles.photoBtnText, { color: '#FFF' }]}>Tirar Foto</Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
                                                 <Ionicons name="image" size={24} color={theme.colors.primary} />
@@ -637,6 +654,35 @@ const styles = StyleSheet.create({
         color: theme.colors.primary,
         fontFamily: theme.fonts.bold,
         fontSize: 14,
+    },
+    photoActionBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 8,
+        backgroundColor: theme.colors.surface,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#EFEFEF',
+        overflow: 'hidden',
+    },
+    photoActionBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        gap: 6,
+    },
+    photoActionText: {
+        fontSize: 14,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.primary,
+    },
+    photoActionDivider: {
+        width: 1,
+        height: 24,
+        backgroundColor: '#EFEFEF',
     },
     warningBadge: {
         backgroundColor: theme.colors.accent + '20',

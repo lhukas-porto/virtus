@@ -137,9 +137,10 @@ export const MedicationListScreen = () => {
                                             </View>
 
                                             {/* Resumo breve (sem dados de alarme) */}
-                                            {med.description ? (
+                                            {med.instructions && med.instructions !== 'Cadastrado no Vitus' ? (
                                                 <Text style={styles.medSummary} numberOfLines={2}>
-                                                    {med.description}
+                                                    {/* Remove o sufixo de alarme que é adicionado depois (ex: " - Diário das 08:00") */}
+                                                    {med.instructions.split(' - ')[0]}
                                                 </Text>
                                             ) : null}
                                         </View>
