@@ -51,41 +51,24 @@ export const ScannerScreen = () => {
             setIdentifying(false);
 
             if (medInfo) {
-                const message = `Remédio: ${medInfo.name}\nFabricante: ${medInfo.brand || 'Não informado'}\n\nDeseja cadastrar e configurar os alarmes via Lupa Mágica?`;
-
-                if (Platform.OS === 'web') {
-                    if (window.confirm(message)) {
-                        navigation.navigate('AddMedication', {
-                            barcode: data,
-                            medInfo: medInfo
-                        });
-                    }
-                    setScanned(false);
-                } else {
-                    Alert.alert(
-                        'Pesquisa Concluída! 🔍✨',
-                        message,
-                        [
-                            { text: 'Cancelar', onPress: () => setScanned(false), style: 'cancel' },
-                            {
-                                text: 'Sim, Configurar',
-                                onPress: () => {
-                                    navigation.navigate('AddMedication', {
-                                        barcode: data,
-                                        medInfo: medInfo
-                                    });
-                                    setScanned(false);
-                                }
-                            },
-                        ]
-                    );
-                }
+                navigation.navigate('AddMedication', {
+                    barcode: data,
+                    medInfo: medInfo
+                });
+                setScanned(false);
             } else {
                 setScanned(false);
-                Alert.alert('Código lido', `Não encontramos detalhes para o código ${data}. Deseja cadastrar manualmente?`, [
-                    { text: 'Não', style: 'cancel' },
-                    { text: 'Sim', onPress: () => navigation.navigate('AddMedication', { barcode: data }) }
-                ]);
+                const queryManual = 'Não encontramos detalhes para este código. Deseja cadastrar manualmente?';
+                if (Platform.OS === 'web') {
+                    if (window.confirm(queryManual)) {
+                        navigation.navigate('AddMedication', { barcode: data });
+                    }
+                } else {
+                    Alert.alert('Código lido', queryManual, [
+                        { text: 'Não', style: 'cancel' },
+                        { text: 'Sim', onPress: () => navigation.navigate('AddMedication', { barcode: data }) }
+                    ]);
+                }
             }
         } catch (e) {
             setIdentifying(false);
@@ -128,8 +111,16 @@ export const ScannerScreen = () => {
 
                     <View style={styles.bottomBar}>
                         <TouchableOpacity
+                            style={styles.manualButton}
+                            onPress={() => navigation.navigate('AddMedication')}
+                        >
+                            <Ionicons name="create-outline" size={24} color="#FFF" />
+                            <Text style={styles.manualButtonText}>Digitar Nome</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
                             style={styles.closeButton}
-                            onPress={() => navigation.navigate('Home')}
+                            onPress={() => navigation.goBack()}
                         >
                             <Ionicons name="close" size={32} color="#FFF" />
                         </TouchableOpacity>
@@ -238,7 +229,24 @@ const styles = StyleSheet.create({
     },
     bottomBar: {
         padding: 40,
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: 20,
+    },
+    manualButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 30,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        gap: 10,
+    },
+    manualButtonText: {
+        color: '#FFF',
+        fontFamily: theme.fonts.bold,
+        fontSize: 16,
     },
     closeButton: {
         width: 64,

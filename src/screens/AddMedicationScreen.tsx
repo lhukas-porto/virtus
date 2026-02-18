@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, SafeAreaView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, SafeAreaView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Linking } from 'react-native';
 import { theme } from '../theme/theme';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { scheduleMedicationReminder, requestNotificationPermissions } from '../services/notifications';
+import * as ImagePicker from 'expo-image-picker';
 
 const FREQUENCIES = [
     { label: 'Diário', value: '24' },
@@ -25,12 +26,16 @@ export const AddMedicationScreen = () => {
     const medInfo = route.params?.medInfo || null;
     const initialBarcode = route.params?.barcode || (medInfo?.gtin || '');
 
+    // Se não veio do scanner (pesquisa ok), é manual
+    const isManual = !medInfo;
+
     const [name, setName] = useState(medInfo?.name || '');
     const [dosage, setDosage] = useState('');
     const [instructions, setInstructions] = useState(medInfo?.description || '');
     const [reminderTime, setReminderTime] = useState('08:00');
     const [frequency, setFrequency] = useState('24'); // Default daily
     const [loading, setLoading] = useState(false);
+    const [image, setImage] = useState<string | null>(medInfo?.image || null);
 
     const handleTimeChange = (text: string) => {
         // Remove anything not digit
@@ -78,19 +83,60 @@ export const AddMedicationScreen = () => {
         setShowMedSelector(false);
     };
 
+    const pickImage = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Epa!', 'Precisamos de acesso às suas fotos para adicionar uma imagem.');
+            return;
+        }
+
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
+        }
+    };
+
+    const takePhoto = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Epa!', 'Precisamos de acesso à câmera para tirar a foto.');
+            return;
+        }
+
+        let result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
+        }
+    };
+
     const handleSave = async () => {
         if (!name) {
-            if (Platform.OS === 'web') window.alert('O nome do medicamento é obrigatório.');
-            else Alert.alert('Ops!', 'O nome do medicamento é obrigatório.');
+            const msg = 'O nome do medicamento é obrigatório.';
+            if (Platform.OS === 'web') window.alert(msg);
+            else Alert.alert('Ops!', msg);
             return;
         }
 
         setLoading(true);
         try {
             const hasPermission = await requestNotificationPermissions();
-
-            // Frequency text for instructions
             const freqLabel = FREQUENCIES.find(f => f.value === frequency)?.label;
+
+            // Se for manual, não montamos instruções de alarme
+            const finalInstructions = isManual
+                ? (instructions || 'Cadastrado manualmente')
+                : `${instructions}${instructions ? ' - ' : ''}${freqLabel} das ${reminderTime}`;
 
             const { data, error } = await supabase.from('medications').insert([
                 {
@@ -98,19 +144,23 @@ export const AddMedicationScreen = () => {
                     name,
                     dosage,
                     barcode: initialBarcode,
-                    instructions: `${instructions}${instructions ? ' - ' : ''}${freqLabel} das ${reminderTime}`,
+                    instructions: finalInstructions,
+                    image_url: image, // Salvando a URI local ou da internet
                 },
             ]).select();
 
             if (error) throw error;
 
-            if (hasPermission && data && data[0]) {
+            // Só agenda lembrete se não for manual (fluxo da Lupa Mágica)
+            if (!isManual && hasPermission && data && data[0]) {
                 await scheduleMedicationReminder(name, reminderTime, data[0].id);
             }
 
-            if (Platform.OS === 'web') window.alert('Agenda e Alarme configurados! 🌿');
-            else Alert.alert('Sucesso!', 'Agenda e Alarme configurados! 🌿');
-            navigation.navigate('Main', { screen: 'Alarmes' });
+            const successMsg = isManual ? 'Medicamento salvo com sucesso! 🌿' : 'Agenda e Alarme configurados! 🌿';
+            if (Platform.OS === 'web') window.alert(successMsg);
+            else Alert.alert('Sucesso!', successMsg);
+
+            navigation.navigate('Main', { screen: 'Farmacia' });
         } catch (error: any) {
             if (Platform.OS === 'web') window.alert('Erro ao salvar: ' + error.message);
             else Alert.alert('Erro', error.message);
@@ -130,9 +180,35 @@ export const AddMedicationScreen = () => {
                         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                             <Ionicons name="chevron-back" size={28} color={theme.colors.primary} />
                         </TouchableOpacity>
-                        <Text style={styles.title}>Configurar Alarme</Text>
-                        <Text style={styles.subtitle}>Defina o horário e a frequência.</Text>
+                        <Text style={styles.title}>{isManual ? 'Cadastro Manual' : 'Configurar Alarme'}</Text>
+                        <Text style={styles.subtitle}>
+                            {isManual ? 'Preencha as informações básicas.' : 'Defina o horário e a frequência.'}
+                        </Text>
                     </View>
+
+                    {/* Card de Descoberta (apenas se veio do Scanner) */}
+                    {!isManual && medInfo && (
+                        <Card style={styles.discoveryCard}>
+                            <View style={styles.discoveryImageContainer}>
+                                {medInfo.image ? (
+                                    <Image source={{ uri: medInfo.image }} style={styles.discoveryImage} />
+                                ) : (
+                                    <View style={styles.discoveryImagePlaceholder}>
+                                        <Ionicons name="medical" size={40} color={theme.colors.primary} />
+                                    </View>
+                                )}
+                                {medInfo.brand && (
+                                    <View style={styles.brandBadge}>
+                                        <Text style={styles.brandText}>{medInfo.brand}</Text>
+                                    </View>
+                                )}
+                            </View>
+                            <View style={styles.discoveryContent}>
+                                <Text style={styles.discoveryLabel}>Identificamos para você:</Text>
+                                <Text style={styles.discoveryName}>{medInfo.name}</Text>
+                            </View>
+                        </Card>
+                    )}
 
                     {!medInfo && myMedications.length > 0 && (
                         <TouchableOpacity
@@ -141,7 +217,7 @@ export const AddMedicationScreen = () => {
                         >
                             <Ionicons name="apps-outline" size={20} color={theme.colors.primary} />
                             <Text style={styles.selectorToggleText}>
-                                {showMedSelector ? 'Ocultar Meus Remédios' : 'Escolher do meu Armário'}
+                                {showMedSelector ? 'Ocultar Meus Remédios' : 'Escolher dos meus Medicamentos'}
                             </Text>
                         </TouchableOpacity>
                     )}
@@ -162,14 +238,8 @@ export const AddMedicationScreen = () => {
                         </Card>
                     )}
 
-                    {medInfo?.image && (
-                        <Card style={styles.imageCard}>
-                            <Image source={{ uri: medInfo.image }} style={styles.medImage} />
-                            {medInfo.brand && <Text style={styles.brandTag}>{medInfo.brand}</Text>}
-                        </Card>
-                    )}
-
                     <Card style={styles.mainCard}>
+                        {/* Campo Nome */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Medicamento</Text>
                             <TextInput
@@ -180,6 +250,7 @@ export const AddMedicationScreen = () => {
                             />
                         </View>
 
+                        {/* Campo Dosagem */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Dosagem</Text>
                             <TextInput
@@ -190,62 +261,98 @@ export const AddMedicationScreen = () => {
                             />
                         </View>
 
-                        <View style={styles.row}>
-                            <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-                                <Text style={styles.label}>Horário Inicial</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    value={reminderTime}
-                                    onChangeText={handleTimeChange}
-                                    placeholder="08:00"
-                                    keyboardType="number-pad"
-                                    maxLength={5}
-                                />
-                            </View>
-                            <View style={{ justifyContent: 'center', paddingTop: 20 }}>
-                                <Ionicons name="time" size={32} color={theme.colors.primary} />
-                            </View>
-                        </View>
-
+                        {/* Campos de Foto (Manual) ou Foto identificada */}
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Frequência</Text>
-                            <View style={styles.freqContainer}>
-                                {FREQUENCIES.map((f) => (
-                                    <TouchableOpacity
-                                        key={f.value}
-                                        onPress={() => setFrequency(f.value)}
-                                        style={[
-                                            styles.freqChip,
-                                            frequency === f.value && styles.freqChipActive
-                                        ]}
-                                    >
-                                        <Text style={[
-                                            styles.freqChipText,
-                                            frequency === f.value && styles.freqChipTextActive
-                                        ]}>
-                                            {f.label}
-                                        </Text>
+                            <Text style={styles.label}>Foto do Medicamento</Text>
+                            {image ? (
+                                <View style={styles.imagePreviewContainer}>
+                                    <Image source={{ uri: image }} style={styles.imagePreview} />
+                                    <TouchableOpacity style={styles.removeImageBtn} onPress={() => setImage(null)}>
+                                        <Ionicons name="close-circle" size={24} color={theme.colors.alert} />
                                     </TouchableOpacity>
-                                ))}
-                            </View>
+                                </View>
+                            ) : (
+                                <View style={styles.photoActions}>
+                                    <TouchableOpacity style={styles.photoBtn} onPress={takePhoto}>
+                                        <Ionicons name="camera" size={24} color={theme.colors.primary} />
+                                        <Text style={styles.photoBtnText}>Tirar Foto</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
+                                        <Ionicons name="image" size={24} color={theme.colors.primary} />
+                                        <Text style={styles.photoBtnText}>Galeria</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
                         </View>
 
-                        {medInfo?.bulaUrl && (
-                            <TouchableOpacity
-                                style={styles.bulaLink}
-                                onPress={() => Alert.alert('Bula', 'Deseja abrir a bula oficial no navegador?', [
-                                    { text: 'Não' },
-                                    { text: 'Sim', onPress: () => { /* open link */ } }
-                                ])}
-                            >
-                                <Ionicons name="document-text" size={20} color={theme.colors.primary} />
-                                <Text style={styles.bulaText}>Ver Bula Digital</Text>
-                            </TouchableOpacity>
+                        {/* Campos extras apenas para o fluxo NÃO manual (Lupa Mágica) */}
+                        {!isManual && (
+                            <>
+                                <View style={styles.row}>
+                                    <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
+                                        <Text style={styles.label}>Horário Inicial</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            value={reminderTime}
+                                            onChangeText={handleTimeChange}
+                                            placeholder="08:00"
+                                            keyboardType="number-pad"
+                                            maxLength={5}
+                                        />
+                                    </View>
+                                    <View style={{ justifyContent: 'center', paddingTop: 20 }}>
+                                        <Ionicons name="time" size={32} color={theme.colors.primary} />
+                                    </View>
+                                </View>
+
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Frequência</Text>
+                                    <View style={styles.freqContainer}>
+                                        {FREQUENCIES.map((f) => (
+                                            <TouchableOpacity
+                                                key={f.value}
+                                                onPress={() => setFrequency(f.value)}
+                                                style={[
+                                                    styles.freqChip,
+                                                    frequency === f.value && styles.freqChipActive
+                                                ]}
+                                            >
+                                                <Text style={[
+                                                    styles.freqChipText,
+                                                    frequency === f.value && styles.freqChipTextActive
+                                                ]}>
+                                                    {f.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </View>
+
+                                {medInfo?.bulaUrl && (
+                                    <TouchableOpacity
+                                        style={styles.bulaLink}
+                                        onPress={() => {
+                                            const msg = 'Deseja abrir a bula oficial no navegador?';
+                                            if (Platform.OS === 'web') {
+                                                if (window.confirm(msg)) Linking.openURL(medInfo.bulaUrl);
+                                            } else {
+                                                Alert.alert('Bula', msg, [
+                                                    { text: 'Não' },
+                                                    { text: 'Sim', onPress: () => Linking.openURL(medInfo.bulaUrl) }
+                                                ]);
+                                            }
+                                        }}
+                                    >
+                                        <Ionicons name="document-text" size={20} color={theme.colors.primary} />
+                                        <Text style={styles.bulaText}>Ver Bula Digital</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </>
                         )}
                     </Card>
 
                     <Button
-                        title={loading ? "Salvando..." : "Salvar Alarme"}
+                        title={loading ? "Salvando..." : isManual ? "Cadastrar Medicamento" : "Salvar Alarme"}
                         onPress={handleSave}
                         style={styles.saveButton}
                     />
@@ -328,6 +435,62 @@ const styles = StyleSheet.create({
         padding: 24,
         backgroundColor: theme.colors.surface,
     },
+    discoveryCard: {
+        padding: 0,
+        overflow: 'hidden',
+        marginBottom: 24,
+        backgroundColor: '#FFF',
+    },
+    discoveryImageContainer: {
+        width: '100%',
+        height: 180,
+        backgroundColor: '#F9F9F9',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+    },
+    discoveryImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'contain',
+    },
+    discoveryImagePlaceholder: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    brandBadge: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        backgroundColor: theme.colors.primary,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    brandText: {
+        color: '#FFF',
+        fontSize: 12,
+        fontFamily: theme.fonts.bold,
+        textTransform: 'uppercase',
+    },
+    discoveryContent: {
+        padding: 20,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+    },
+    discoveryLabel: {
+        fontSize: 12,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+        opacity: 0.4,
+        textTransform: 'uppercase',
+        marginBottom: 4,
+    },
+    discoveryName: {
+        fontSize: 22,
+        fontFamily: theme.fonts.heading,
+        color: theme.colors.primary,
+    },
     inputGroup: {
         marginBottom: 24,
     },
@@ -351,6 +514,46 @@ const styles = StyleSheet.create({
         fontFamily: theme.fonts.body,
         borderWidth: 1,
         borderColor: '#E0E0E0',
+    },
+    photoActions: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    photoBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.primary + '10',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: theme.colors.primary + '20',
+        gap: 8,
+    },
+    photoBtnText: {
+        color: theme.colors.primary,
+        fontFamily: theme.fonts.bold,
+        fontSize: 14,
+    },
+    imagePreviewContainer: {
+        width: '100%',
+        height: 200,
+        borderRadius: 16,
+        overflow: 'hidden',
+        backgroundColor: '#F0F0F0',
+    },
+    imagePreview: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    removeImageBtn: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: '#FFF',
+        borderRadius: 12,
     },
     freqContainer: {
         flexDirection: 'row',
@@ -383,32 +586,6 @@ const styles = StyleSheet.create({
     saveButton: {
         marginTop: 12,
         marginBottom: 40,
-    },
-    imageCard: {
-        padding: 0,
-        overflow: 'hidden',
-        height: 180,
-        marginBottom: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#FFF',
-    },
-    medImage: {
-        width: '100%',
-        height: '100%',
-        resizeMode: 'contain',
-    },
-    brandTag: {
-        position: 'absolute',
-        top: 12,
-        right: 12,
-        backgroundColor: theme.colors.primary,
-        color: '#FFF',
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
-        fontSize: 12,
-        fontFamily: theme.fonts.bold,
     },
     bulaLink: {
         flexDirection: 'row',

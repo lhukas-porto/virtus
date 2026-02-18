@@ -22,7 +22,7 @@ export const theme = {
     },
     roundness: 16,
     fonts: {
-        heading: 'PlayfairDisplay_700Bold',
+        heading: 'Outfit_700Bold', // Unificando com a tipografia "Outfit" da tela de login
         body: 'Outfit_400Regular',
         semiBold: 'Outfit_600SemiBold',
         bold: 'Outfit_700Bold',

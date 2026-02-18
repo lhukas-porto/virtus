@@ -80,8 +80,10 @@ export const MedicationListScreen = () => {
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>Meu Armário 💊</Text>
-                    <Text style={styles.subtitle}>Gerencie seus medicamentos aqui</Text>
+                    <View>
+                        <Text style={styles.title}>Meus Medicamentos 💊</Text>
+                        <Text style={styles.subtitle}>Gerencie seus medicamentos aqui</Text>
+                    </View>
                 </View>
 
                 <View style={styles.searchContainer}>
@@ -163,8 +165,14 @@ const styles = StyleSheet.create({
         padding: 24,
     },
     header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 24,
         marginTop: 10,
+    },
+    headerAddBtn: {
+        padding: 4,
     },
     title: {
         fontSize: 32,

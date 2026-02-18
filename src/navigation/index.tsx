@@ -27,7 +27,7 @@ function AppTabs() {
                     let iconName;
                     if (route.name === 'Alarmes') iconName = focused ? 'alarm' : 'alarm-outline';
                     else if (route.name === 'Monitoramento') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-                    else if (route.name === 'Farmacia') iconName = focused ? 'medical' : 'medical-outline';
+                    else if (route.name === 'Medicamentos') iconName = focused ? 'medical' : 'medical-outline';
                     else if (route.name === 'Perfil') iconName = focused ? 'person' : 'person-outline';
 
                     return <Ionicons name={iconName as any} size={size} color={color} />;
@@ -36,23 +36,23 @@ function AppTabs() {
                 tabBarInactiveTintColor: 'gray',
                 headerShown: false,
                 tabBarStyle: { height: 75, paddingBottom: 15, paddingTop: 10 },
-                tabBarLabelStyle: { fontSize: 12, fontWeight: '600' }
+                tabBarLabelStyle: { fontSize: 12, fontFamily: theme.fonts.semiBold }
             })}
         >
             <Tab.Screen
                 name="Alarmes"
                 component={HomeScreen}
-                options={{ tabBarLabel: 'Agenda' }}
+                options={{ tabBarLabel: 'Alarmes' }}
             />
             <Tab.Screen
                 name="Monitoramento"
                 component={HealthLogScreen}
-                options={{ tabBarLabel: 'Saúde' }}
+                options={{ tabBarLabel: 'Monitoramento' }}
             />
             <Tab.Screen
-                name="Farmacia"
+                name="Medicamentos"
                 component={MedicationListScreen}
-                options={{ tabBarLabel: 'Armário' }}
+                options={{ tabBarLabel: 'Medicamentos' }}
             />
             <Tab.Screen name="Perfil" component={ProfileScreen} />
         </Tab.Navigator>

@@ -34,7 +34,7 @@ export default function App() {
     if (!fontsLoaded) {
         return (
             <View style={{ flex: 1, height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
-                <Text style={{ fontSize: 20, color: '#3E8E41' }}>Carregando Vitus...</Text>
+                <Text style={{ fontSize: 20, color: '#06815B', fontFamily: 'Outfit_600SemiBold' }}>Carregando Vitus...</Text>
             </View>
         );
     }

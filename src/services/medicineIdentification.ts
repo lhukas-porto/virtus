@@ -25,6 +25,27 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
 
         // Fallback common medications for demo purposes if the specific GTIN isn't reached
         const samples: Record<string, IdentificationResult> = {
+            "7894916203021": {
+                name: "Dorflex",
+                brand: "Sanofi",
+                image: "https://d36u887n96777n.cloudfront.net/Custom/Content/Products/98/55/985536_dorflex-sanofi-50-comprimidos_m1_637042526550756306.jpg",
+                description: "Analgésico e relaxante muscular indicado para alívio de dor associada a contraturas musculares.",
+                bulaUrl: "https://www.sanofi.com.br/-/media/Project/One-Win/Country/Brazil/Products-Brazil/Bulas/Dorflex.pdf"
+            },
+            "7896015525545": {
+                name: "Tylenol 750mg",
+                brand: "Kenvue",
+                image: "https://cdn.ultrafarma.com.br/static/produtos/212211/large-6371569055428453.png",
+                description: "Indicado em adultos para a redução da febre e para o alívio temporário de dores leves a moderadas.",
+                bulaUrl: "https://www.tylenol.com.br/bulas"
+            },
+            "7891045041041": {
+                name: "Advil 400mg",
+                brand: "Haleon",
+                image: "https://paguemenos.vtexassets.com/arquivos/ids/621183/advil-400mg-com-3-capsulas-liquidas.jpg",
+                description: "Alívio rápido para dores de cabeça, musculares e febre.",
+                bulaUrl: "https://www.advil.com.br/bulas"
+            },
             "7896004706597": {
                 name: "Losartana Potássica",
                 brand: "Germed",
@@ -38,27 +59,6 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
                 image: "https://d2j6dbq0eux0bg.cloudfront.net/images/11181058/312015843.jpg",
                 description: "Indicado para o tratamento dos sintomas de gripes e resfriados.",
                 bulaUrl: "https://www.benegrip.com.br/bula"
-            },
-            "7896714214535": {
-                name: "Dipirona Monoidratada",
-                brand: "Neo Química",
-                image: "https://cdn.ultrafarma.com.br/static/produtos/805141/large-637402685055428453-805141.png",
-                description: "Analgésico e antitérmico potente.",
-                bulaUrl: "https://www.neoquimica.com.br/bula"
-            },
-            "7896006211235": {
-                name: "Paracetamol",
-                brand: "Medley",
-                image: "https://cdn.ultrafarma.com.br/static/produtos/212211/large-6371569055428453.png",
-                description: "Indicado para redução da febre e para o alívio temporário de dores leves.",
-                bulaUrl: "https://www.medley.com.br/bula"
-            },
-            "7896026300483": {
-                name: "Amoxicilina",
-                brand: "EMS",
-                image: "https://www.drogariasaopaulo.com.br/static/produtos/7896026300483.jpg",
-                description: "Antibiótico eficaz no tratamento de infecções bacterianas.",
-                bulaUrl: "https://www.ems.com.br/bula"
             }
         };
 

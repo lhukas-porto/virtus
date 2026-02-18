@@ -10,23 +10,23 @@ export default function HomeScreen() {
 
     return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
-            <Text style={{ fontSize: 24, fontWeight: 'bold', color: theme.colors.primary }}>
+            <Text style={{ fontSize: 24, fontFamily: theme.fonts.heading, color: theme.colors.primary }}>
                 Olá, Vitus! 💜
             </Text>
-            <Text style={{ marginTop: 10, color: theme.colors.text }}>Seu diário de saúde.</Text>
+            <Text style={{ marginTop: 10, color: theme.colors.text, fontFamily: theme.fonts.body }}>Seu diário de saúde.</Text>
 
             <TouchableOpacity
                 onPress={() => router.push('/add-medication')}
                 style={{ marginTop: 20, backgroundColor: theme.colors.primary, padding: 15, borderRadius: 10 }}
             >
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>+ Novo Medicamento</Text>
+                <Text style={{ color: 'white', fontFamily: theme.fonts.bold }}>+ Novo Medicamento</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
                 onPress={() => router.push('/add-health-log')}
                 style={{ marginTop: 15, backgroundColor: theme.colors.text, padding: 15, borderRadius: 10 }}
             >
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>+ Registrar Sinais Vitais</Text>
+                <Text style={{ color: 'white', fontFamily: theme.fonts.bold }}>+ Registrar Sinais Vitais</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
