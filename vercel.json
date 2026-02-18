@@ -1,6 +1,6 @@
 {
     "outputDirectory": "dist",
-    "installCommand": "npm install --force --no-audit",
+    "installCommand": "yarn install",
     "rewrites": [
         {
             "source": "/(.*)",
