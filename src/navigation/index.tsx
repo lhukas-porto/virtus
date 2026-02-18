@@ -78,6 +78,7 @@ export default function RootNavigation() {
                         <Stack.Screen name="Main" component={AppTabs} />
                         <Stack.Screen name="HealthLog" component={HealthLogScreen} />
                         <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
+                        <Stack.Screen name="Scanner" component={ScannerScreen} />
                     </>
                 ) : (
                     <Stack.Screen name="Login" component={LoginScreen} />
