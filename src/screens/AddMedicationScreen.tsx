@@ -37,6 +37,7 @@ export const AddMedicationScreen = () => {
     const [frequency, setFrequency] = useState('24'); // Default daily
     const [loading, setLoading] = useState(false);
     const [image, setImage] = useState<string | null>(medInfo?.image || null);
+    const [savedMedId, setSavedMedId] = useState<string | null>(null);
 
     const handleTimeChange = (text: string) => {
         // Remove anything not digit
@@ -121,7 +122,8 @@ export const AddMedicationScreen = () => {
         }
     };
 
-    const handleSave = async () => {
+    // ETAPA 1: Salvar apenas o Medicamento
+    const handleSaveMedication = async () => {
         if (!name) {
             const msg = 'O nome do medicamento é obrigatório.';
             if (Platform.OS === 'web') window.alert(msg);
@@ -131,43 +133,70 @@ export const AddMedicationScreen = () => {
 
         setLoading(true);
         try {
-            const hasPermission = await requestNotificationPermissions();
-            const freqLabel = FREQUENCIES.find(f => f.value === frequency)?.label;
-
-            // Se for manual, não montamos instruções de alarme
-            const finalInstructions = isManual
-                ? (instructions || 'Cadastrado manualmente')
-                : `${instructions}${instructions ? ' - ' : ''}${freqLabel} das ${reminderTime}`;
-
             const { data, error } = await supabase.from('medications').insert([
                 {
                     profile_id: session?.user?.id,
                     name,
                     dosage,
                     barcode: initialBarcode,
-                    instructions: finalInstructions,
-                    image_url: image, // Salvando a URI local ou da internet
+                    instructions: instructions || 'Cadastrado no Vitus',
+                    image_url: image,
                 },
             ]).select();
 
             if (error) throw error;
 
-            // Só agenda lembrete se não for manual (fluxo da Lupa Mágica)
-            if (!isManual && hasPermission && data && data[0]) {
-                await scheduleMedicationReminder(name, reminderTime, data[0].id);
+            if (data && data[0]) {
+                setSavedMedId(data[0].id);
+                const successMsg = 'Medicamento salvo na sua farmácia! 🌿 Agora vamos configurar o alarme?';
+                if (Platform.OS === 'web') window.alert(successMsg);
+                else Alert.alert('Sucesso!', successMsg);
             }
-
-            const successMsg = isManual ? 'Medicamento salvo com sucesso! 🌿' : 'Agenda e Alarme configurados! 🌿';
-            if (Platform.OS === 'web') window.alert(successMsg);
-            else Alert.alert('Sucesso!', successMsg);
-
-            navigation.navigate('Main', { screen: 'Farmacia' });
         } catch (error: any) {
             if (Platform.OS === 'web') window.alert('Erro ao salvar: ' + error.message);
             else Alert.alert('Erro', error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    // ETAPA 2: Configurar o Alarme
+    const handleActivateAlarm = async () => {
+        if (!savedMedId) return;
+
+        setLoading(true);
+        try {
+            const hasPermission = await requestNotificationPermissions();
+            const freqLabel = FREQUENCIES.find(f => f.value === frequency)?.label;
+
+            // Atualiza as instruções com a frequência
+            const finalInstructions = `${instructions}${instructions ? ' - ' : ''}${freqLabel} das ${reminderTime}`;
+
+            const { error: updateError } = await supabase.from('medications')
+                .update({ instructions: finalInstructions })
+                .eq('id', savedMedId);
+
+            if (updateError) throw updateError;
+
+            if (hasPermission) {
+                await scheduleMedicationReminder(name, reminderTime, savedMedId);
+            }
+
+            const successMsg = 'Alarme ativado com sucesso! ⏰🌿';
+            if (Platform.OS === 'web') window.alert(successMsg);
+            else Alert.alert('Tudo pronto!', successMsg);
+
+            navigation.navigate('Main', { screen: 'Farmacia' });
+        } catch (error: any) {
+            if (Platform.OS === 'web') window.alert('Erro ao configurar alarme: ' + error.message);
+            else Alert.alert('Erro', error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleFinishWithoutAlarm = () => {
+        navigation.navigate('Main', { screen: 'Farmacia' });
     };
 
     return (
@@ -178,128 +207,149 @@ export const AddMedicationScreen = () => {
             >
                 <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
                     <View style={styles.header}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                            <Ionicons name="chevron-back" size={28} color={theme.colors.primary} />
+                        <TouchableOpacity onPress={savedMedId ? handleFinishWithoutAlarm : () => navigation.goBack()} style={styles.backButton}>
+                            <Ionicons name={savedMedId ? "close" : "chevron-back"} size={28} color={theme.colors.primary} />
                         </TouchableOpacity>
-                        <Text style={styles.title}>{isManual ? 'Cadastro Manual' : 'Configurar Alarme'}</Text>
+                        <Text style={styles.title}>
+                            {!savedMedId ? 'Novo Medicamento' : 'Configurar Alarme'}
+                        </Text>
                         <Text style={styles.subtitle}>
-                            {isManual ? 'Preencha as informações básicas.' : 'Defina o horário e a frequência.'}
+                            {!savedMedId ? 'Confirme os dados básicos.' : 'Agora agende seus lembretes.'}
                         </Text>
                     </View>
 
-                    {/* Card de Descoberta (apenas se veio do Scanner) */}
-                    {!isManual && medInfo && (
-                        <Card style={styles.discoveryCard}>
-                            <View style={styles.discoveryImageContainer}>
-                                {medInfo.image ? (
-                                    <Image source={{ uri: medInfo.image }} style={styles.discoveryImage} />
-                                ) : (
-                                    <View style={styles.discoveryImagePlaceholder}>
-                                        <Ionicons name="medical" size={40} color={theme.colors.primary} />
+                    {/* ETAPA 1: DADOS DO MEDICAMENTO */}
+                    {!savedMedId && (
+                        <>
+                            {/* Card de Descoberta (apenas se veio do Scanner) */}
+                            {medInfo && (
+                                <Card style={styles.discoveryCard}>
+                                    <View style={styles.discoveryImageContainer}>
+                                        {medInfo.image ? (
+                                            <Image source={{ uri: medInfo.image }} style={styles.discoveryImage} />
+                                        ) : (
+                                            <View style={styles.discoveryImagePlaceholder}>
+                                                <Ionicons name="medical" size={40} color={theme.colors.primary} />
+                                            </View>
+                                        )}
+                                        {medInfo.brand && (
+                                            <View style={styles.brandBadge}>
+                                                <Text style={styles.brandText}>{medInfo.brand}</Text>
+                                            </View>
+                                        )}
                                     </View>
-                                )}
-                                {medInfo.brand && (
-                                    <View style={styles.brandBadge}>
-                                        <Text style={styles.brandText}>{medInfo.brand}</Text>
+                                    <View style={styles.discoveryContent}>
+                                        <Text style={styles.discoveryLabel}>Identificamos para você:</Text>
+                                        <Text style={styles.discoveryName}>{medInfo.name}</Text>
                                     </View>
-                                )}
-                            </View>
-                            <View style={styles.discoveryContent}>
-                                <Text style={styles.discoveryLabel}>Identificamos para você:</Text>
-                                <Text style={styles.discoveryName}>{medInfo.name}</Text>
-                            </View>
-                        </Card>
-                    )}
-
-                    {!medInfo && myMedications.length > 0 && (
-                        <TouchableOpacity
-                            style={styles.selectorToggle}
-                            onPress={() => setShowMedSelector(!showMedSelector)}
-                        >
-                            <Ionicons name="apps-outline" size={20} color={theme.colors.primary} />
-                            <Text style={styles.selectorToggleText}>
-                                {showMedSelector ? 'Ocultar Meus Remédios' : 'Escolher dos meus Medicamentos'}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {showMedSelector && (
-                        <Card style={styles.medPickerCard}>
-                            <Text style={styles.pickerTitle}>Meus Medicamentos</Text>
-                            {myMedications.map(med => (
-                                <TouchableOpacity
-                                    key={med.id}
-                                    style={styles.pickerItem}
-                                    onPress={() => handleSelectExistingMed(med)}
-                                >
-                                    <Text style={styles.pickerItemText}>{med.name}</Text>
-                                    <Ionicons name="chevron-forward" size={18} color={theme.colors.border} />
-                                </TouchableOpacity>
-                            ))}
-                        </Card>
-                    )}
-
-                    <Card style={styles.mainCard}>
-                        {/* Campo Nome */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Medicamento</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={name}
-                                onChangeText={setName}
-                                placeholder="Nome do remédio"
-                            />
-                        </View>
-
-                        {/* Campo EAN (Código de Barras) */}
-                        {initialBarcode ? (
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Código de barras (EAN)</Text>
-                                <View style={[styles.input, { backgroundColor: '#F0F4F1', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-                                    <Text style={{ fontFamily: theme.fonts.body, color: theme.colors.text }}>{initialBarcode}</Text>
-                                    <Ionicons name="barcode-outline" size={20} color={theme.colors.primary} />
-                                </View>
-                            </View>
-                        ) : null}
-
-                        {/* Campo Dosagem */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Dosagem</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={dosage}
-                                onChangeText={setDosage}
-                                placeholder="Ex: 1 comprimido, 50mg..."
-                            />
-                        </View>
-
-                        {/* Campos de Foto (Manual) ou Foto identificada */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Foto do Medicamento</Text>
-                            {image ? (
-                                <View style={styles.imagePreviewContainer}>
-                                    <Image source={{ uri: image }} style={styles.imagePreview} />
-                                    <TouchableOpacity style={styles.removeImageBtn} onPress={() => setImage(null)}>
-                                        <Ionicons name="close-circle" size={24} color={theme.colors.alert} />
-                                    </TouchableOpacity>
-                                </View>
-                            ) : (
-                                <View style={styles.photoActions}>
-                                    <TouchableOpacity style={styles.photoBtn} onPress={takePhoto}>
-                                        <Ionicons name="camera" size={24} color={theme.colors.primary} />
-                                        <Text style={styles.photoBtnText}>Tirar Foto</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
-                                        <Ionicons name="image" size={24} color={theme.colors.primary} />
-                                        <Text style={styles.photoBtnText}>Galeria</Text>
-                                    </TouchableOpacity>
-                                </View>
+                                </Card>
                             )}
-                        </View>
 
-                        {/* Campos extras apenas para o fluxo NÃO manual (Lupa Mágica) */}
-                        {!isManual && (
-                            <>
+                            {!medInfo && myMedications.length > 0 && (
+                                <TouchableOpacity
+                                    style={styles.selectorToggle}
+                                    onPress={() => setShowMedSelector(!showMedSelector)}
+                                >
+                                    <Ionicons name="apps-outline" size={20} color={theme.colors.primary} />
+                                    <Text style={styles.selectorToggleText}>
+                                        {showMedSelector ? 'Ocultar Meus Remédios' : 'Escolher dos meus Medicamentos'}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {showMedSelector && (
+                                <Card style={styles.medPickerCard}>
+                                    <Text style={styles.pickerTitle}>Meus Medicamentos</Text>
+                                    {myMedications.map(med => (
+                                        <TouchableOpacity
+                                            key={med.id}
+                                            style={styles.pickerItem}
+                                            onPress={() => handleSelectExistingMed(med)}
+                                        >
+                                            <Text style={styles.pickerItemText}>{med.name}</Text>
+                                            <Ionicons name="chevron-forward" size={18} color={theme.colors.border} />
+                                        </TouchableOpacity>
+                                    ))}
+                                </Card>
+                            )}
+
+                            <Card style={styles.mainCard}>
+                                {/* Campo Nome */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Medicamento</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={name}
+                                        onChangeText={setName}
+                                        placeholder="Nome do remédio"
+                                    />
+                                </View>
+
+                                {/* Campo EAN (Código de Barras) */}
+                                {initialBarcode ? (
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Código de barras (EAN)</Text>
+                                        <View style={[styles.input, { backgroundColor: '#F0F4F1', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                                            <Text style={{ fontFamily: theme.fonts.body, color: theme.colors.text }}>{initialBarcode}</Text>
+                                            <Ionicons name="barcode-outline" size={20} color={theme.colors.primary} />
+                                        </View>
+                                    </View>
+                                ) : null}
+
+                                {/* Campo Dosagem */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Dosagem</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={dosage}
+                                        onChangeText={setDosage}
+                                        placeholder="Ex: 1 comprimido, 50mg..."
+                                    />
+                                </View>
+
+                                {/* Campos de Foto */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Foto do Medicamento</Text>
+                                    {image ? (
+                                        <View style={styles.imagePreviewContainer}>
+                                            <Image source={{ uri: image }} style={styles.imagePreview} />
+                                            <TouchableOpacity style={styles.removeImageBtn} onPress={() => setImage(null)}>
+                                                <Ionicons name="close-circle" size={24} color={theme.colors.alert} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ) : (
+                                        <View style={styles.photoActions}>
+                                            <TouchableOpacity style={styles.photoBtn} onPress={takePhoto}>
+                                                <Ionicons name="camera" size={24} color={theme.colors.primary} />
+                                                <Text style={styles.photoBtnText}>Tirar Foto</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
+                                                <Ionicons name="image" size={24} color={theme.colors.primary} />
+                                                <Text style={styles.photoBtnText}>Galeria</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+                            </Card>
+
+                            <Button
+                                title={loading ? "Salvando..." : "Salvar Medicamento"}
+                                onPress={handleSaveMedication}
+                                style={styles.saveButton}
+                            />
+                        </>
+                    )}
+
+                    {/* ETAPA 2: CONFIGURAÇÃO DE ALARME */}
+                    {savedMedId && (
+                        <>
+                            <Card style={styles.mainCard}>
+                                <View style={styles.successBadge}>
+                                    <Ionicons name="checkmark-circle" size={48} color={theme.colors.primary} />
+                                    <Text style={styles.successTitle}>Medicamento Salvo!</Text>
+                                    <Text style={styles.successText}>{name} está na sua farmácia.</Text>
+                                </View>
+
                                 <View style={styles.row}>
                                     <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
                                         <Text style={styles.label}>Horário Inicial</Text>
@@ -343,31 +393,28 @@ export const AddMedicationScreen = () => {
                                 {medInfo?.bulaUrl && (
                                     <TouchableOpacity
                                         style={styles.bulaLink}
-                                        onPress={() => {
-                                            const msg = 'Deseja abrir a bula oficial no navegador?';
-                                            if (Platform.OS === 'web') {
-                                                if (window.confirm(msg)) Linking.openURL(medInfo.bulaUrl);
-                                            } else {
-                                                Alert.alert('Bula', msg, [
-                                                    { text: 'Não' },
-                                                    { text: 'Sim', onPress: () => Linking.openURL(medInfo.bulaUrl) }
-                                                ]);
-                                            }
-                                        }}
+                                        onPress={() => Linking.openURL(medInfo.bulaUrl)}
                                     >
                                         <Ionicons name="document-text" size={20} color={theme.colors.primary} />
                                         <Text style={styles.bulaText}>Ver Bula Digital</Text>
                                     </TouchableOpacity>
                                 )}
-                            </>
-                        )}
-                    </Card>
+                            </Card>
 
-                    <Button
-                        title={loading ? "Salvando..." : isManual ? "Cadastrar Medicamento" : "Salvar Alarme"}
-                        onPress={handleSave}
-                        style={styles.saveButton}
-                    />
+                            <Button
+                                title={loading ? "Ativando..." : "Ativar Alarme"}
+                                onPress={handleActivateAlarm}
+                                style={styles.saveButton}
+                            />
+
+                            <TouchableOpacity
+                                style={styles.skipButton}
+                                onPress={handleFinishWithoutAlarm}
+                            >
+                                <Text style={styles.skipButtonText}>Finalizar sem Alarme</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -611,5 +658,40 @@ const styles = StyleSheet.create({
         color: theme.colors.primary,
         textDecorationLine: 'underline',
         marginLeft: 8,
+    },
+    successBadge: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        marginBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    successTitle: {
+        fontSize: 24,
+        fontFamily: theme.fonts.heading,
+        color: theme.colors.primary,
+        marginTop: 8,
+    },
+    successText: {
+        fontSize: 16,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.text,
+        opacity: 0.7,
+        textAlign: 'center',
+        marginTop: 4,
+    },
+    skipButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        marginTop: -10,
+        marginBottom: 30,
+    },
+    skipButtonText: {
+        color: theme.colors.text,
+        fontFamily: theme.fonts.bold,
+        opacity: 0.5,
+        fontSize: 14,
     }
 });

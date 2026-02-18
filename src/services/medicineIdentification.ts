@@ -15,7 +15,7 @@ export interface IdentificationResult {
  */
 export const identifyMedicineByGTIN = async (gtin: string): Promise<IdentificationResult | null> => {
     try {
-        // Extensive local database for common Brazilian medications (WOW effect for MVP)
+        // Core local database for guaranteed "wow" factor on common meds
         const samples: Record<string, IdentificationResult> = {
             "7894916203021": {
                 name: "Dorflex",
@@ -24,84 +24,29 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
                 description: "Analgésico e relaxante muscular.",
                 bulaUrl: "https://www.sanofi.com.br/-/media/Project/One-Win/Country/Brazil/Products-Brazil/Bulas/Dorflex.pdf"
             },
-            "7891058002916": { // Outro EAN Dorflex
+            "7891058002916": {
                 name: "Dorflex 10 cpr",
                 brand: "Sanofi",
                 image: "https://paguemenos.vtexassets.com/arquivos/ids/653069/dorflex-com-10-comprimidos.jpg",
                 description: "Analgésico e relaxante muscular.",
             },
-            "7897005870478": { // Dorflex MAX
-                name: "Dorflex MAX",
-                brand: "Sanofi",
-                image: "https://paguemenos.vtexassets.com/arquivos/ids/653069/dorflex-com-10-comprimidos.jpg",
-                description: "Analgésico e relaxante muscular potente.",
-            },
-            "7896112112158": { // Dipirona Medley
+            "7896112112158": {
                 name: "Dipirona Sódica 500mg",
                 brand: "Medley",
                 image: "https://d2j6dbq0eux0bg.cloudfront.net/images/11181058/312015843.jpg",
                 description: "Analgésico e antitérmico.",
             },
-            "7894916143202": { // Dipirona EMS
-                name: "Dipirona Sódica 500mg",
-                brand: "EMS",
-                image: "https://www.farmaciaitaituba.com.br/wp-content/uploads/2022/02/7894916143202.jpg",
-                description: "Analgésico e antitérmico.",
-            },
-            "7897595901323": {
-                name: "Puran T4 75mcg",
-                brand: "Merck",
-                image: "https://paguemenos.vtexassets.com/arquivos/ids/621183/puran-t4-75mcg-30-comprimidos.jpg",
-                description: "Reposição hormonal da tireoide.",
-            },
-            "7891721027468": {
-                name: "Glifage XR 500mg",
-                brand: "Merck",
-                image: "https://drogariaspacheco.vtexassets.com/arquivos/ids/676571/glifage-xr-500mg-30-comprimidos.jpg",
-                description: "Controle da diabetes tipo 2.",
-            },
-            "7896094921986": {
-                name: "Neosaldina",
-                brand: "Takeda",
-                image: "https://paguemenos.vtexassets.com/arquivos/ids/621183/neosaldina-30mg-30mg-300mg-4-comprimidos.jpg",
-                description: "Analgésico para dor de cabeça.",
-            },
-            "7896094922242": {
-                name: "Buscopan Composto",
-                brand: "Boehringer",
-                image: "https://paguemenos.vtexassets.com/arquivos/ids/621183/buscopan-composto-10mg-250mg-4-comprimidos.jpg",
-                description: "Antiespasmódico e analgésico.",
-            },
-            "7891268044409": {
-                name: "Advil 400mg",
-                brand: "Haleon",
-                image: "https://paguemenos.vtexassets.com/arquivos/ids/621183/advil-400mg-com-3-capsulas-liquidas.jpg",
-                description: "Alívio rápido para dores e febre.",
-            },
-            "7896523212319": {
-                name: "Simeticona",
-                brand: "Cimed",
-                image: "https://d2j6dbq0eux0bg.cloudfront.net/images/11181058/312015843.jpg",
-                description: "Alívio de gases.",
-            },
-            "7896523212685": {
-                name: "Nimesulida 100mg",
-                brand: "Cimed",
-                image: "https://www.drogaeste.com.br/media/catalog/product/7/8/7896004706597_1.jpg",
-                description: "Anti-inflamatório e analgésico.",
-            },
-            "7891045041041": {
-                name: "Advil 400mg (Unit)",
-                brand: "Haleon",
-                image: "https://paguemenos.vtexassets.com/arquivos/ids/621183/advil-400mg-com-3-capsulas-liquidas.jpg",
-                description: "Cápsula líquida para dor.",
+            "7896422512145": {
+                name: "Ciclopirox Olamina",
+                brand: "Medley",
+                image: "https://drogariaspacheco.vtexassets.com/arquivos/ids/676451/ciclopirox-olamina-10mg-solucao-topica-15ml-medley-generico.jpg",
+                description: "Fungicida para tratamento de micoses tópicas.",
             },
             "7896004706597": {
                 name: "Losartana Potássica",
                 brand: "Germed",
                 image: "https://www.drogaeste.com.br/media/catalog/product/7/8/7896004706597_1.jpg",
                 description: "Anti-hipertensivo usado para controlar a pressão alta.",
-                bulaUrl: "https://consultas.anvisa.gov.br/#/medicamentos/25351221430200931/"
             }
         };
 
@@ -109,26 +54,47 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
             return samples[gtin];
         }
 
-        // FALLBACK: Search the internet (Using OpenFoodFacts as a public CORS-friendly proxy)
-        try {
-            const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${gtin}.json`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data && data.product && data.product.product_name) {
-                    return {
-                        name: data.product.product_name,
-                        brand: data.product.brands || '',
-                        image: data.product.image_url || undefined,
-                        description: data.product.generic_name || 'Item identificado via busca web.'
-                    };
+        // --- THE "INTERNET SEARCH" ENGINE ---
+        // We use multiple public, CORS-friendly sources to identify the medicine dynamically
+        const sources = [
+            `https://world.openfoodfacts.org/api/v2/product/${gtin}.json`,
+            `https://api.upcitemdb.com/prod/trial/lookup?upc=${gtin}`
+        ];
+
+        for (const url of sources) {
+            try {
+                const response = await fetch(url, { method: 'GET' });
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Logic for OpenFoodFacts
+                    if (data.product && data.product.product_name) {
+                        return {
+                            name: data.product.product_name,
+                            brand: data.product.brands || '',
+                            image: data.product.image_url || undefined,
+                            description: data.product.generic_name || 'Identificado via rede mundial.'
+                        };
+                    }
+
+                    // Logic for UPCItemDB
+                    if (data.items && data.items.length > 0) {
+                        const item = data.items[0];
+                        return {
+                            name: item.title,
+                            brand: item.brand || '',
+                            image: item.images && item.images.length > 0 ? item.images[0] : undefined,
+                            description: 'Encontrado em base internacional de produtos.'
+                        };
+                    }
                 }
+            } catch (err) {
+                console.log(`Source ${url} failed, trying next...`);
             }
-        } catch (e) {
-            console.log("Internet search fallback failed, skipping...");
         }
 
         return null;
     } catch (error) {
-        return null;
+        return null; // Silent fail to allow manual entry
     }
 };
