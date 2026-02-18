@@ -113,7 +113,7 @@ export default function AddHealthLog() {
                     <View style={styles.card}>
                         <View style={styles.header}>
                             <Ionicons name="heart" size={24} color={theme.colors.accent} />
-                            <Text style={styles.cardTitle}>Pressão Arterial</Text>
+                            <Text style={styles.cardTitle}>Pressão arterial</Text>
                         </View>
 
                         <View style={styles.row}>
@@ -147,7 +147,7 @@ export default function AddHealthLog() {
                     <View style={styles.card}>
                         <View style={styles.header}>
                             <Ionicons name="pulse" size={24} color={theme.colors.primary} />
-                            <Text style={styles.cardTitle}>Frequência Cardíaca</Text>
+                            <Text style={styles.cardTitle}>Frequência cardíaca</Text>
                         </View>
 
                         <Text style={styles.label}>Batimentos por Minuto (BPM)</Text>
@@ -163,7 +163,7 @@ export default function AddHealthLog() {
                     <View style={styles.card}>
                         <View style={styles.header}>
                             <Ionicons name="time" size={24} color={theme.colors.gray600} />
-                            <Text style={styles.cardTitle}>Horário da Medição</Text>
+                            <Text style={styles.cardTitle}>Horário da medição</Text>
                         </View>
 
                         <Text style={styles.label}>Hora (HH:mm)</Text>

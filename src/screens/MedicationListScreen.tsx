@@ -128,7 +128,7 @@ export const MedicationListScreen = () => {
                                 <Ionicons name="cart-outline" size={80} color={theme.colors.border} />
                                 <Text style={styles.emptyText}>Nenhum medicamento encontrado</Text>
                                 <Button
-                                    title="Escanear Medicamento 🔍"
+                                    title="Escanear medicamento 🔍"
                                     onPress={() => navigation.navigate('Scanner')}
                                     style={styles.addBtn}
                                 />
@@ -137,7 +137,7 @@ export const MedicationListScreen = () => {
                                     style={{ marginTop: 20 }}
                                 >
                                     <Text style={{ color: theme.colors.primary, fontFamily: theme.fonts.bold }}>
-                                        Cadastrar Manualmente
+                                        Cadastrar manualmente
                                     </Text>
                                 </TouchableOpacity>
                             </View>

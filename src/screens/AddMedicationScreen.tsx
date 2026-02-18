@@ -251,6 +251,17 @@ export const AddMedicationScreen = () => {
                             />
                         </View>
 
+                        {/* Campo EAN (Código de Barras) */}
+                        {initialBarcode ? (
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Código de barras (EAN)</Text>
+                                <View style={[styles.input, { backgroundColor: '#F0F4F1', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                                    <Text style={{ fontFamily: theme.fonts.body, color: theme.colors.text }}>{initialBarcode}</Text>
+                                    <Ionicons name="barcode-outline" size={20} color={theme.colors.primary} />
+                                </View>
+                            </View>
+                        ) : null}
+
                         {/* Campo Dosagem */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Dosagem</Text>

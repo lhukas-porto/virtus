@@ -39,33 +39,14 @@ export const ScannerScreen = () => {
                 setScanned(false);
             } else {
                 setScanned(false);
-                const queryManual = 'Não encontramos detalhes para este código. Deseja cadastrar manualmente?';
-                if (Platform.OS === 'web') {
-                    if (window.confirm(queryManual)) {
-                        navigation.navigate('AddMedication', { barcode: data });
-                    }
-                } else {
-                    Alert.alert('Código lido', queryManual, [
-                        { text: 'Não', style: 'cancel' },
-                        { text: 'Sim', onPress: () => navigation.navigate('AddMedication', { barcode: data }) }
-                    ]);
-                }
+                // Direto para cadastro manual com o código EAN preenchido conforme solicitado
+                navigation.navigate('AddMedication', { barcode: data });
             }
         } catch (e) {
             setIdentifying(false);
             setScanned(false);
-            // Em caso de erro (como falha de rede), tratamos como "não encontrado" para permitir entrada manual
-            const queryFail = 'Não foi possível buscar os detalhes agora. Deseja cadastrar manualmente?';
-            if (Platform.OS === 'web') {
-                if (window.confirm(queryFail)) {
-                    navigation.navigate('AddMedication', { barcode: data });
-                }
-            } else {
-                Alert.alert('Aviso', queryFail, [
-                    { text: 'Não', style: 'cancel' },
-                    { text: 'Sim', onPress: () => navigation.navigate('AddMedication', { barcode: data }) }
-                ]);
-            }
+            // Em caso de erro, também seguimos para o cadastro manual para não travar o usuário
+            navigation.navigate('AddMedication', { barcode: data });
         }
     };
 
