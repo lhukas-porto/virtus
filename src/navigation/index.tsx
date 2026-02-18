@@ -12,7 +12,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { HealthLogScreen } from '../screens/HealthLogScreen';
 import { AddMedicationScreen } from '../screens/AddMedicationScreen';
-import { ScannerScreen } from '../screens/ScannerScreen';
+import { MedicationListScreen } from '../screens/MedicationListScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 
 const Tab = createBottomTabNavigator();
@@ -26,7 +26,7 @@ function AppTabs() {
                     let iconName;
                     if (route.name === 'Alarmes') iconName = focused ? 'alarm' : 'alarm-outline';
                     else if (route.name === 'Monitoramento') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-                    else if (route.name === 'Scanner') iconName = focused ? 'barcode' : 'barcode-outline';
+                    else if (route.name === 'Farmacia') iconName = focused ? 'medical' : 'medical-outline';
                     else if (route.name === 'Perfil') iconName = focused ? 'person' : 'person-outline';
 
                     return <Ionicons name={iconName as any} size={size} color={color} />;
@@ -41,14 +41,18 @@ function AppTabs() {
             <Tab.Screen
                 name="Alarmes"
                 component={HomeScreen}
-                options={{ tabBarLabel: 'Medicamentos' }}
+                options={{ tabBarLabel: 'Agenda' }}
             />
             <Tab.Screen
                 name="Monitoramento"
                 component={HealthLogScreen}
                 options={{ tabBarLabel: 'Saúde' }}
             />
-            <Tab.Screen name="Scanner" component={ScannerScreen} />
+            <Tab.Screen
+                name="Farmacia"
+                component={MedicationListScreen}
+                options={{ tabBarLabel: 'Meu Armário' }}
+            />
             <Tab.Screen name="Perfil" component={ProfileScreen} />
         </Tab.Navigator>
     );
