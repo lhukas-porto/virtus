@@ -97,8 +97,8 @@ export const AddMedicationScreen = () => {
 
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
-            allowsEditing: true,
-            quality: 1,
+            allowsEditing: false,
+            quality: 0.85,
         });
 
         if (!result.canceled) {
@@ -114,8 +114,8 @@ export const AddMedicationScreen = () => {
         }
 
         let result = await ImagePicker.launchCameraAsync({
-            allowsEditing: true,
-            quality: 1,
+            allowsEditing: false,
+            quality: 0.85,
         });
 
         if (!result.canceled) {
