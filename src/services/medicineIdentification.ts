@@ -37,9 +37,9 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
                 description: "Analgésico e antitérmico.",
             },
             "7896422512145": {
-                name: "Ciclopirox Olamina",
+                name: "Ciclopirox Olamina 10mg/ml",
                 brand: "Medley",
-                image: "https://drogariaspacheco.vtexassets.com/arquivos/ids/676451/ciclopirox-olamina-10mg-solucao-topica-15ml-medley-generico.jpg",
+                image: "https://paguemenos.vtexassets.com/arquivos/ids/676451-800-auto?v=637920188667500000&width=800&height=auto&aspect=true",
                 description: "Fungicida para tratamento de micoses tópicas.",
             },
             "7896004706597": {
@@ -47,6 +47,12 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
                 brand: "Germed",
                 image: "https://www.drogaeste.com.br/media/catalog/product/7/8/7896004706597_1.jpg",
                 description: "Anti-hipertensivo usado para controlar a pressão alta.",
+            },
+            "7895296445863": {
+                name: "Dipirona Monoidratada 500mg",
+                brand: "Nova Química",
+                image: "https://paguemenos.vtexassets.com/arquivos/ids/664121-800-auto?v=637841639097700000&width=800&height=auto&aspect=true",
+                description: "Analgésico e antitérmico.",
             }
         };
 
