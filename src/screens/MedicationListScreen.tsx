@@ -125,10 +125,18 @@ export const MedicationListScreen = () => {
                                 <Ionicons name="cart-outline" size={80} color={theme.colors.border} />
                                 <Text style={styles.emptyText}>Nenhum medicamento encontrado</Text>
                                 <Button
-                                    title="Cadastrar Novo"
+                                    title="Escanear Medicamento 🔍"
                                     onPress={() => navigation.navigate('Scanner')}
                                     style={styles.addBtn}
                                 />
+                                <TouchableOpacity
+                                    onPress={() => navigation.navigate('AddMedication')}
+                                    style={{ marginTop: 20 }}
+                                >
+                                    <Text style={{ color: theme.colors.primary, fontFamily: theme.fonts.bold }}>
+                                        Cadastrar Manualmente
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
                         )}
                     </ScrollView>
@@ -138,7 +146,7 @@ export const MedicationListScreen = () => {
                     style={styles.fab}
                     onPress={() => navigation.navigate('Scanner')}
                 >
-                    <Ionicons name="add" size={32} color="#FFF" />
+                    <Ionicons name="barcode-outline" size={32} color="#FFF" />
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
