@@ -186,7 +186,7 @@ export const HomeScreen = () => {
                     />
                     <Button
                         title="+ Novo Remédio"
-                        onPress={() => navigation.navigate('AddMedication')}
+                        onPress={() => navigation.navigate('Scanner')}
                         type="secondary"
                         style={styles.actionButton}
                     />

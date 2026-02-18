@@ -126,7 +126,7 @@ export const MedicationListScreen = () => {
                                 <Text style={styles.emptyText}>Nenhum medicamento encontrado</Text>
                                 <Button
                                     title="Cadastrar Novo"
-                                    onPress={() => navigation.navigate('AddMedication')}
+                                    onPress={() => navigation.navigate('Scanner')}
                                     style={styles.addBtn}
                                 />
                             </View>
@@ -136,7 +136,7 @@ export const MedicationListScreen = () => {
 
                 <TouchableOpacity
                     style={styles.fab}
-                    onPress={() => navigation.navigate('AddMedication')}
+                    onPress={() => navigation.navigate('Scanner')}
                 >
                     <Ionicons name="add" size={32} color="#FFF" />
                 </TouchableOpacity>

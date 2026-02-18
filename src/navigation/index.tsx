@@ -27,7 +27,6 @@ function AppTabs() {
                     let iconName;
                     if (route.name === 'Alarmes') iconName = focused ? 'alarm' : 'alarm-outline';
                     else if (route.name === 'Monitoramento') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-                    else if (route.name === 'Scanner') iconName = focused ? 'barcode' : 'barcode-outline';
                     else if (route.name === 'Farmacia') iconName = focused ? 'medical' : 'medical-outline';
                     else if (route.name === 'Perfil') iconName = focused ? 'person' : 'person-outline';
 
@@ -49,11 +48,6 @@ function AppTabs() {
                 name="Monitoramento"
                 component={HealthLogScreen}
                 options={{ tabBarLabel: 'Saúde' }}
-            />
-            <Tab.Screen
-                name="Scanner"
-                component={ScannerScreen}
-                options={{ tabBarLabel: 'Lupa Mágica' }}
             />
             <Tab.Screen
                 name="Farmacia"
