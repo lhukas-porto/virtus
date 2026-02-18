@@ -320,6 +320,28 @@ export const AddMedicationScreen = () => {
                                     />
                                 </View>
 
+                                {/* Campo Resumo / Indicação */}
+                                <View style={styles.inputGroup}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+                                        <Text style={styles.label}>Resumo / Indicação</Text>
+                                        {medInfo?.description ? (
+                                            <View style={styles.autoBadge}>
+                                                <Ionicons name="sparkles" size={10} color={theme.colors.primary} />
+                                                <Text style={styles.autoText}>Auto</Text>
+                                            </View>
+                                        ) : null}
+                                    </View>
+                                    <TextInput
+                                        style={[styles.input, styles.textArea]}
+                                        value={instructions}
+                                        onChangeText={setInstructions}
+                                        placeholder="Para que serve este remédio? Ex: Analgésico e antitérmico, usado para dores e febre..."
+                                        multiline
+                                        numberOfLines={3}
+                                        textAlignVertical="top"
+                                    />
+                                </View>
+
                                 {/* Campos de Foto */}
                                 <View style={styles.inputGroup}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -726,5 +748,24 @@ const styles = StyleSheet.create({
         fontFamily: theme.fonts.bold,
         opacity: 0.5,
         fontSize: 14,
-    }
+    },
+    textArea: {
+        minHeight: 90,
+        paddingTop: 14,
+    },
+    autoBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        backgroundColor: theme.colors.primary + '15',
+        paddingHorizontal: 7,
+        paddingVertical: 2,
+        borderRadius: 6,
+        marginBottom: 8,
+    },
+    autoText: {
+        color: theme.colors.primary,
+        fontSize: 10,
+        fontFamily: theme.fonts.bold,
+    },
 });
