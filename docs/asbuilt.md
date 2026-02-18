@@ -30,9 +30,6 @@
 - [x] Tela Home com Destaque "Próxima Dose" (Interface E Link com DB)
 - [x] Fluxo de Registro de Pressão/Batimentos (Telas + DB)
 - [x] Tela de Cadastro Manual de Medicamentos
-- [x] Lógica de "Minhas Vitórias" (Gamificação baseada em logs)
-- [ ] Componente visual de Streak Avançado (Gráficos)
-
 ---
 
 ### 🟡 FASE 03: SCANNER DE MEDICAMENTOS (LUPA MÁGICA)
@@ -50,13 +47,13 @@
 **Status:** `✅ Concluída`
 - [x] Sistema de Agendamento Local (Expo Notifications)
 - [x] Agenda do Dia Dinâmica na Home
-- [x] Fluxo de "Marcar como Tomado" (Logs + Streak)
+- [x] Fluxo de "Marcar como Tomado" (Logs)
 - [x] Persistência de Histórico no DB
 
 ---
 
 ### 🔴 FASE 05: RELATÓRIOS E POLIMENTO
-**Status:** `⏳ Aguardando`
+**Status:** `✅ Concluída (Em andamento)`
 - [x] Geração de PDF (Cartão de Saúde)
 - [x] Exportação de dados para Excel (CSV)
 - [ ] Revisão de Acessibilidade (WCAG)

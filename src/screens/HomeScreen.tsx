@@ -14,7 +14,6 @@ export const HomeScreen = () => {
     const [nextMed, setNextMed] = React.useState<any>(null);
     const [allMeds, setAllMeds] = React.useState<any[]>([]);
     const [checkedMeds, setCheckedMeds] = React.useState<string[]>([]);
-    const [streak, setStreak] = React.useState(0);
     const [loading, setLoading] = React.useState(true);
 
     const userName = profile?.name || session?.user?.user_metadata?.name || 'Vitus';
@@ -49,14 +48,6 @@ export const HomeScreen = () => {
                 setCheckedMeds(logs.map(l => l.medication_id));
             }
 
-            // 3. Get Streak (simplified as count of total logs for now)
-            const { count } = await supabase
-                .from('medication_logs')
-                .select('*', { count: 'exact', head: true })
-                .eq('profile_id', session.user.id);
-
-            setStreak(count || 0);
-
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
@@ -79,7 +70,6 @@ export const HomeScreen = () => {
             if (error) throw error;
 
             setCheckedMeds(prev => [...prev, medId]);
-            setStreak(prev => prev + 1);
 
             if (Platform.OS === 'web') window.alert('Parabéns! Mais uma vitória para sua saúde. 🌿');
             else Alert.alert('Vitória!', 'Remédio registrado com sucesso.');
@@ -185,24 +175,6 @@ export const HomeScreen = () => {
                     )}
                 </View>
 
-                {/* Victory Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Sua Jornada 🏆</Text>
-                    <Card style={styles.streakCard}>
-                        <View style={styles.streakContent}>
-                            <View style={styles.streakInfo}>
-                                <Text style={styles.streakCount}>{streak}</Text>
-                                <Text style={styles.streakLabel}>{streak === 1 ? 'VITÓRIA' : 'VITÓRIAS'}</Text>
-                            </View>
-                            <View style={styles.streakSeparator} />
-                            <Text style={styles.streakText}>
-                                {streak > 0
-                                    ? 'Cuidando da sua saúde com carinho!'
-                                    : 'Amanhã será seu primeiro dia de vitória!'}
-                            </Text>
-                        </View>
-                    </Card>
-                </View>
 
                 {/* Quick Action Button */}
                 <View style={styles.actionsGrid}>
@@ -378,46 +350,6 @@ const styles = StyleSheet.create({
         color: theme.colors.text,
         opacity: 0.5,
         marginTop: 4,
-    },
-    streakCard: {
-        backgroundColor: theme.colors.primary,
-        padding: 0,
-        overflow: 'hidden',
-    },
-    streakContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 24,
-    },
-    streakInfo: {
-        alignItems: 'center',
-        minWidth: 70,
-    },
-    streakCount: {
-        fontSize: 42,
-        fontFamily: theme.fonts.heading,
-        color: '#FFF',
-        lineHeight: 48,
-    },
-    streakLabel: {
-        fontSize: 12,
-        fontFamily: theme.fonts.bold,
-        color: '#FFF',
-        opacity: 0.8,
-        marginTop: -4,
-    },
-    streakSeparator: {
-        width: 1,
-        height: '100%',
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        marginHorizontal: 20,
-    },
-    streakText: {
-        flex: 1,
-        fontSize: 16,
-        fontFamily: theme.fonts.body,
-        color: '#FFF',
-        lineHeight: 22,
     },
     actionsGrid: {
         flexDirection: 'row',
