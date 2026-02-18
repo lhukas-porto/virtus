@@ -35,10 +35,10 @@ export const scheduleMedicationReminder = async (medName: string, time: string, 
             sound: true,
         },
         trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
             hour: hours,
             minute: minutes,
-            repeats: true,
-        } as Notifications.NotificationTriggerInput,
+        },
     });
 
     return notificationId;

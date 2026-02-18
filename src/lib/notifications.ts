@@ -6,6 +6,8 @@ Notifications.setNotificationHandler({
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
     }),
 });
 
@@ -60,9 +62,9 @@ export async function scheduleMedicationReminder(
                 sound: true,
             },
             trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DAILY,
                 hour: trigger.hour,
                 minute: trigger.minute,
-                repeats: true,
             },
         });
     }
