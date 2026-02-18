@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/Card';
@@ -11,6 +11,15 @@ export const ProfileScreen = () => {
     const { session, profile } = useAuth();
 
     const handleLogout = async () => {
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm("Deseja realmente sair da sua conta?");
+            if (confirmed) {
+                const { error } = await supabase.auth.signOut();
+                if (error) alert("Erro: " + error.message);
+            }
+            return;
+        }
+
         Alert.alert(
             "Sair",
             "Deseja realmente sair da sua conta?",

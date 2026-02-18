@@ -57,8 +57,8 @@
 
 ### 🔴 FASE 05: RELATÓRIOS E POLIMENTO
 **Status:** `⏳ Aguardando`
-- [ ] Geração de PDF (Cartão de Saúde)
-- [ ] Exportação de dados para Excel
+- [x] Geração de PDF (Cartão de Saúde)
+- [x] Exportação de dados para Excel (CSV)
 - [ ] Revisão de Acessibilidade (WCAG)
 
 ---

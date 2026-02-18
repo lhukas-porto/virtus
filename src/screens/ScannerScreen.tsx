@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, Alert, Platform } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
@@ -42,10 +42,22 @@ export const ScannerScreen = () => {
         if (scanned) return;
         setScanned(true);
 
-        // Simulation logic: Find medicine by barcode or just pretend
+        const message = `Encontramos um medicamento com o código: ${data}. Deseja cadastrar agora?`;
+
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm("Remédio Identificado!\n\n" + message);
+            if (confirmed) {
+                setScanned(false);
+                navigation.navigate('AddMedication', { barcode: data });
+            } else {
+                setScanned(false);
+            }
+            return;
+        }
+
         Alert.alert(
             'Remédio Identificado!',
-            `Encontramos um medicamento com o código: ${data}. Deseja cadastrar agora?`,
+            message,
             [
                 { text: 'Cancelar', onPress: () => setScanned(false), style: 'cancel' },
                 {
@@ -65,7 +77,7 @@ export const ScannerScreen = () => {
                 style={StyleSheet.absoluteFillObject}
                 onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
                 barcodeScannerSettings={{
-                    barcodeTypes: ["qr", "ean13", "ean8"],
+                    barcodeTypes: ["qr", "ean13", "ean8", "code128", "code39", "upc_a", "upc_e"],
                 }}
             >
                 <SafeAreaView style={styles.overlay}>
