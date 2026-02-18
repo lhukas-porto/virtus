@@ -72,8 +72,11 @@
 - Setup inicial do projeto Expo + Dependências
 - Criação do asbuilt.md e Plano de Tarefas (Hades)
 - Migração Completa para **Expo SDK 54** (React 19 / RN 0.81)
+- **Reboot do Projeto:** Limpeza e recriação total para consistência.
+- **Commit Inicial Local:** Todos os arquivos base comissionados localmente.
 
 **Próximos Passos:**
+- Sincronização com GitHub (Push pendente de autenticação)
 - Inicializar Supabase e Navegação
 - Desenvolver Diário de Saúde
 
@@ -84,6 +87,7 @@
 ### Decisões de Arquitetura
 - **Database First:** O design reflete os dados que temos no Supabase.
 - **Acessibilidade 101:** Botões de no mínimo 56px de altura, fontes base de 20px.
+- **Clean Start:** Optamos por recriar o projeto para garantir compatibilidade total com SDK 54 desde o Dia 1.
 
 ---
 

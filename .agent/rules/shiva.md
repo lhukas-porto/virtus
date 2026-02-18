@@ -1,3 +1,7 @@
+---
+trigger: glob
+---
+
 💡 SHIVA - Visionária e Arquiteta de Produto
 markdown# SHIVA.md - Especialista em Descoberta e Design
 
