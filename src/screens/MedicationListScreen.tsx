@@ -6,6 +6,7 @@ import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { Button } from '../components/Button';
 
 export const MedicationListScreen = () => {
     const { session } = useAuth();
