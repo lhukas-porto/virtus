@@ -104,55 +104,24 @@ export const HomeScreen = () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* Next Dose Section */}
-                <View style={styles.section}>
+                {/* Daily Agenda Section */}
+                <View style={[styles.section, { flex: 1 }]}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Sua Próxima Dose</Text>
+                        <Text style={styles.sectionTitle}>Agenda de Hoje 📅</Text>
+                        <TouchableOpacity onPress={fetchData}>
+                            <Ionicons name="refresh" size={20} color={theme.colors.primary} />
+                        </TouchableOpacity>
                     </View>
 
-                    {nextMed ? (
-                        <Card style={styles.nextDoseCard}>
-                            <View style={styles.doseInfo}>
-                                <View style={styles.iconContainer}>
-                                    <Ionicons name="medical" size={32} color={theme.colors.primary} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.medName}>
-                                        {nextMed.name} {nextMed.dosage}
-                                    </Text>
-                                    <View style={styles.timeBadge}>
-                                        <Ionicons name="time-outline" size={16} color={theme.colors.text} style={{ opacity: 0.6 }} />
-                                        <Text style={styles.doseTime}>
-                                            {nextMed.instructions || 'Aguardando horário'}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </Card>
-                    ) : (
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('AddMedication')}
-                            activeOpacity={0.7}
-                        >
-                            <Card style={styles.emptyCard}>
-                                <Ionicons name="add-circle-outline" size={48} color={theme.colors.primary} style={{ marginBottom: 12, opacity: 0.5 }} />
-                                <Text style={styles.emptyText}>Adicionar Medicamento</Text>
-                                <Text style={styles.emptySubtext}>Nenhum registro encontrado ainda.</Text>
-                            </Card>
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                {/* Daily Agenda Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Agenda de Hoje 📅</Text>
                     {allMeds.length > 0 ? (
                         allMeds.map((med: any) => (
                             <Card key={med.id} style={styles.agendaCard}>
                                 <View style={styles.agendaInfo}>
                                     <View style={{ flex: 1 }}>
                                         <Text style={styles.agendaMedName}>{med.name}</Text>
-                                        <Text style={styles.agendaMedDosage}>{med.dosage}</Text>
+                                        <Text style={styles.agendaMedDosage}>
+                                            {med.dosage} • {med.instructions?.split(' - ')[1] || 'Horário não definido'}
+                                        </Text>
                                     </View>
                                     <TouchableOpacity
                                         style={[
@@ -171,38 +140,19 @@ export const HomeScreen = () => {
                             </Card>
                         ))
                     ) : (
-                        <Text style={styles.noAgendaText}>Configure seus lembretes para ver sua agenda aqui.</Text>
+                        <View style={styles.emptyContainer}>
+                            <Ionicons name="calendar-outline" size={64} color={theme.colors.border} />
+                            <Text style={styles.noAgendaText}>Tudo limpo por aqui!{'\n'}Adicione um remédio para começar.</Text>
+                        </View>
                     )}
                 </View>
 
-
-                {/* Quick Action Button */}
-                <View style={styles.actionsGrid}>
-                    <Button
-                        title="+ Anotar Sinais"
-                        onPress={() => navigation.navigate('HealthLog')}
-                        type="secondary"
-                        style={styles.actionButton}
-                    />
-                    <Button
-                        title="+ Novo Remédio"
-                        onPress={() => navigation.navigate('Scanner')}
-                        type="secondary"
-                        style={styles.actionButton}
-                    />
-                </View>
-
-                {/* Emergency Section */}
-                <TouchableOpacity
-                    onPress={() => Alert.alert('Ajuda', 'Ligando para seu contato de emergência...')}
-                    activeOpacity={0.9}
-                    style={styles.emergencyWrapper}
-                >
-                    <View style={styles.emergencyCard}>
-                        <Ionicons name="call" size={24} color="#FFF" />
-                        <Text style={styles.emergencyText}>PEDIR AJUDA AGORA</Text>
-                    </View>
-                </TouchableOpacity>
+                {/* Single Clean Add Button */}
+                <Button
+                    title="+ Adicionar Novo Alarme"
+                    onPress={() => navigation.navigate('Scanner')}
+                    style={styles.mainAddButton}
+                />
             </ScrollView>
         </SafeAreaView>
     );
@@ -329,58 +279,14 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 10,
     },
-    emptyCard: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 40,
-        backgroundColor: '#F9F9F9',
-        borderStyle: 'dashed',
-        borderWidth: 1.5,
-        borderColor: '#E0E0E0',
-        borderRadius: 24,
-    },
-    emptyText: {
-        fontSize: 18,
-        fontFamily: theme.fonts.bold,
-        color: theme.colors.primary,
-    },
-    emptySubtext: {
-        fontSize: 14,
-        fontFamily: theme.fonts.body,
-        color: theme.colors.text,
-        opacity: 0.5,
-        marginTop: 4,
-    },
-    actionsGrid: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 32,
-    },
-    actionButton: {
+    emptyContainer: {
         flex: 1,
-        paddingVertical: 14,
-    },
-    emergencyWrapper: {
-        marginBottom: 40,
-    },
-    emergencyCard: {
-        backgroundColor: theme.colors.alert,
-        borderRadius: 20,
-        flexDirection: 'row',
-        justifyContent: 'center',
         alignItems: 'center',
-        height: 64,
-        shadowColor: theme.colors.alert,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 6,
+        justifyContent: 'center',
+        marginTop: 60,
     },
-    emergencyText: {
-        color: '#FFF',
-        fontFamily: theme.fonts.bold,
-        fontSize: 16,
-        marginLeft: 10,
-        letterSpacing: 1,
+    mainAddButton: {
+        marginTop: 20,
+        marginBottom: 40,
     }
 });
