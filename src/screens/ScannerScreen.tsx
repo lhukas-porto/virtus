@@ -51,7 +51,7 @@ export const ScannerScreen = () => {
             setIdentifying(false);
 
             if (medInfo) {
-                const message = `Identificamos: ${medInfo.name}\n${medInfo.brand || ''}\n\nDeseja configurar o alarme para este remédio?`;
+                const message = `Remédio: ${medInfo.name}\nFabricante: ${medInfo.brand || 'Não informado'}\n\nDeseja cadastrar e configurar os alarmes via Lupa Mágica?`;
 
                 if (Platform.OS === 'web') {
                     if (window.confirm(message)) {
@@ -63,10 +63,10 @@ export const ScannerScreen = () => {
                     setScanned(false);
                 } else {
                     Alert.alert(
-                        'Remédio Identificado! 💊',
+                        'Pesquisa Concluída! 🔍✨',
                         message,
                         [
-                            { text: 'Não', onPress: () => setScanned(false), style: 'cancel' },
+                            { text: 'Cancelar', onPress: () => setScanned(false), style: 'cancel' },
                             {
                                 text: 'Sim, Configurar',
                                 onPress: () => {

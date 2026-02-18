@@ -43,8 +43,22 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
                 name: "Dipirona Monoidratada",
                 brand: "Neo Química",
                 image: "https://cdn.ultrafarma.com.br/static/produtos/805141/large-637402685055428453-805141.png",
-                description: "Analgésico e antitérmico.",
+                description: "Analgésico e antitérmico potente.",
                 bulaUrl: "https://www.neoquimica.com.br/bula"
+            },
+            "7896006211235": {
+                name: "Paracetamol",
+                brand: "Medley",
+                image: "https://cdn.ultrafarma.com.br/static/produtos/212211/large-6371569055428453.png",
+                description: "Indicado para redução da febre e para o alívio temporário de dores leves.",
+                bulaUrl: "https://www.medley.com.br/bula"
+            },
+            "7896026300483": {
+                name: "Amoxicilina",
+                brand: "EMS",
+                image: "https://www.drogariasaopaulo.com.br/static/produtos/7896026300483.jpg",
+                description: "Antibiótico eficaz no tratamento de infecções bacterianas.",
+                bulaUrl: "https://www.ems.com.br/bula"
             }
         };
 
