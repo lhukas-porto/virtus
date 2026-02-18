@@ -12,6 +12,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { HealthLogScreen } from '../screens/HealthLogScreen';
 import { AddMedicationScreen } from '../screens/AddMedicationScreen';
+import { ScannerScreen } from '../screens/ScannerScreen';
 import { MedicationListScreen } from '../screens/MedicationListScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 
@@ -26,6 +27,7 @@ function AppTabs() {
                     let iconName;
                     if (route.name === 'Alarmes') iconName = focused ? 'alarm' : 'alarm-outline';
                     else if (route.name === 'Monitoramento') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
+                    else if (route.name === 'Scanner') iconName = focused ? 'barcode' : 'barcode-outline';
                     else if (route.name === 'Farmacia') iconName = focused ? 'medical' : 'medical-outline';
                     else if (route.name === 'Perfil') iconName = focused ? 'person' : 'person-outline';
 
@@ -49,9 +51,14 @@ function AppTabs() {
                 options={{ tabBarLabel: 'Saúde' }}
             />
             <Tab.Screen
+                name="Scanner"
+                component={ScannerScreen}
+                options={{ tabBarLabel: 'Lupa Mágica' }}
+            />
+            <Tab.Screen
                 name="Farmacia"
                 component={MedicationListScreen}
-                options={{ tabBarLabel: 'Meu Armário' }}
+                options={{ tabBarLabel: 'Armário' }}
             />
             <Tab.Screen name="Perfil" component={ProfileScreen} />
         </Tab.Navigator>

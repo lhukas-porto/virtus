@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, SafeAreaView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, SafeAreaView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { theme } from '../theme/theme';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -14,12 +14,13 @@ export const AddMedicationScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
 
-    // Get barcode from scanner if available
-    const initialBarcode = route.params?.barcode || '';
+    // Get med info from scanner if available
+    const medInfo = route.params?.medInfo || null;
+    const initialBarcode = route.params?.barcode || (medInfo?.gtin || '');
 
-    const [name, setName] = useState('');
+    const [name, setName] = useState(medInfo?.name || '');
     const [dosage, setDosage] = useState('');
-    const [instructions, setInstructions] = useState('');
+    const [instructions, setInstructions] = useState(medInfo?.description || '');
     const [reminderTime, setReminderTime] = useState('08:00');
     const [loading, setLoading] = useState(false);
 
@@ -80,6 +81,13 @@ export const AddMedicationScreen = () => {
                         <Text style={styles.subtitle}>Vamos registrar para não esquecer.</Text>
                     </View>
 
+                    {medInfo?.image && (
+                        <Card style={styles.imageCard}>
+                            <Image source={{ uri: medInfo.image }} style={styles.medImage} />
+                            {medInfo.brand && <Text style={styles.brandTag}>{medInfo.brand}</Text>}
+                        </Card>
+                    )}
+
                     <Card style={styles.mainCard}>
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Nome do Medicamento</Text>
@@ -131,9 +139,24 @@ export const AddMedicationScreen = () => {
                         {initialBarcode ? (
                             <View style={styles.barcodeInfo}>
                                 <Ionicons name="barcode-outline" size={20} color={theme.colors.primary} />
-                                <Text style={styles.barcodeText}>Código de barras detectado!</Text>
+                                <Text style={styles.barcodeText}>
+                                    {medInfo ? 'Informações Automáticas' : 'Código detectado!'}
+                                </Text>
                             </View>
                         ) : null}
+
+                        {medInfo?.bulaUrl && (
+                            <TouchableOpacity
+                                style={styles.bulaLink}
+                                onPress={() => Alert.alert('Bula', 'Deseja abrir a bula oficial no navegador?', [
+                                    { text: 'Não' },
+                                    { text: 'Sim', onPress: () => { /* link would open here */ } }
+                                ])}
+                            >
+                                <Ionicons name="document-text" size={20} color={theme.colors.primary} />
+                                <Text style={styles.bulaText}>Ver Bula Digital</Text>
+                            </TouchableOpacity>
+                        )}
                     </Card>
 
                     <Button
@@ -226,4 +249,43 @@ const styles = StyleSheet.create({
     saveButton: {
         marginTop: 12,
     },
+    imageCard: {
+        padding: 0,
+        overflow: 'hidden',
+        height: 200,
+        marginBottom: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FFF',
+    },
+    medImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'contain',
+    },
+    brandTag: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        backgroundColor: theme.colors.primary,
+        color: '#FFF',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+        fontSize: 12,
+        fontFamily: theme.fonts.bold,
+    },
+    bulaLink: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+        padding: 8,
+    },
+    bulaText: {
+        fontSize: 16,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.primary,
+        textDecorationLine: 'underline',
+        marginLeft: 8,
+    }
 });

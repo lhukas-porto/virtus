@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, Alert, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, Alert, Platform, ActivityIndicator, Image } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { useNavigation } from '@react-navigation/native';
 import { Button } from '../components/Button';
+import { identifyMedicineByGTIN } from '../services/medicineIdentification';
 
 const { width } = Dimensions.get('window');
 
@@ -38,37 +39,59 @@ export const ScannerScreen = () => {
         );
     }
 
-    const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
-        if (scanned) return;
+    const [identifying, setIdentifying] = useState(false);
+
+    const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+        if (scanned || identifying) return;
+        setIdentifying(true);
         setScanned(true);
 
-        const message = `Encontramos um medicamento com o código: ${data}. Deseja cadastrar agora?`;
+        try {
+            const medInfo = await identifyMedicineByGTIN(data);
+            setIdentifying(false);
 
-        if (Platform.OS === 'web') {
-            const confirmed = window.confirm("Remédio Identificado!\n\n" + message);
-            if (confirmed) {
-                setScanned(false);
-                navigation.navigate('AddMedication', { barcode: data });
+            if (medInfo) {
+                const message = `Identificamos: ${medInfo.name}\n${medInfo.brand || ''}\n\nDeseja configurar o alarme para este remédio?`;
+
+                if (Platform.OS === 'web') {
+                    if (window.confirm(message)) {
+                        navigation.navigate('AddMedication', {
+                            barcode: data,
+                            medInfo: medInfo
+                        });
+                    }
+                    setScanned(false);
+                } else {
+                    Alert.alert(
+                        'Remédio Identificado! 💊',
+                        message,
+                        [
+                            { text: 'Não', onPress: () => setScanned(false), style: 'cancel' },
+                            {
+                                text: 'Sim, Configurar',
+                                onPress: () => {
+                                    navigation.navigate('AddMedication', {
+                                        barcode: data,
+                                        medInfo: medInfo
+                                    });
+                                    setScanned(false);
+                                }
+                            },
+                        ]
+                    );
+                }
             } else {
                 setScanned(false);
+                Alert.alert('Código lido', `Não encontramos detalhes para o código ${data}. Deseja cadastrar manualmente?`, [
+                    { text: 'Não', style: 'cancel' },
+                    { text: 'Sim', onPress: () => navigation.navigate('AddMedication', { barcode: data }) }
+                ]);
             }
-            return;
+        } catch (e) {
+            setIdentifying(false);
+            setScanned(false);
+            Alert.alert('Erro', 'Houve um problema ao identificar o remédio.');
         }
-
-        Alert.alert(
-            'Remédio Identificado!',
-            message,
-            [
-                { text: 'Cancelar', onPress: () => setScanned(false), style: 'cancel' },
-                {
-                    text: 'Cadastrar',
-                    onPress: () => {
-                        setScanned(false);
-                        navigation.navigate('AddMedication', { barcode: data });
-                    }
-                },
-            ]
-        );
     };
 
     return (
@@ -91,9 +114,15 @@ export const ScannerScreen = () => {
                             <View style={[styles.corner, styles.topRight]} />
                             <View style={[styles.corner, styles.bottomLeft]} />
                             <View style={[styles.corner, styles.bottomRight]} />
+                            {identifying && (
+                                <View style={styles.loadingOverlay}>
+                                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                                    <Text style={styles.loadingText}>Identificando...</Text>
+                                </View>
+                            )}
                         </View>
                         <Text style={styles.instruction}>
-                            Aponte para o código de barras ou nome do remédio
+                            Aponte para o código de barras do remédio
                         </Text>
                     </View>
 
@@ -218,5 +247,17 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.2)',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 20,
+    },
+    loadingText: {
+        color: '#FFF',
+        marginTop: 12,
+        fontFamily: theme.fonts.bold,
     }
 });
