@@ -37,6 +37,7 @@ export const AddMedicationScreen = () => {
     const [frequency, setFrequency] = useState('24'); // Default daily
     const [loading, setLoading] = useState(false);
     const [image, setImage] = useState<string | null>(medInfo?.image || null);
+    const [brand, setBrand] = useState(medInfo?.brand || '');
     const [savedMedId, setSavedMedId] = useState<string | null>(null);
 
     const handleTimeChange = (text: string) => {
@@ -138,6 +139,7 @@ export const AddMedicationScreen = () => {
                     profile_id: session?.user?.id,
                     name,
                     dosage,
+                    brand, // Laboratório
                     barcode: initialBarcode,
                     instructions: instructions || 'Cadastrado no Vitus',
                     image_url: image,
@@ -285,6 +287,17 @@ export const AddMedicationScreen = () => {
                                     />
                                 </View>
 
+                                {/* Campo Laboratório */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Laboratório / Marca</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={brand}
+                                        onChangeText={setBrand}
+                                        placeholder="Ex: Medley, EMS, Sanofi..."
+                                    />
+                                </View>
+
                                 {/* Campo EAN (Código de Barras) */}
                                 {initialBarcode ? (
                                     <View style={styles.inputGroup}>
@@ -309,7 +322,15 @@ export const AddMedicationScreen = () => {
 
                                 {/* Campos de Foto */}
                                 <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Foto do Medicamento</Text>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <Text style={styles.label}>Foto do Medicamento</Text>
+                                        {!image && (
+                                            <View style={styles.warningBadge}>
+                                                <Text style={styles.warningText}>Recomendado</Text>
+                                            </View>
+                                        )}
+                                    </View>
+
                                     {image ? (
                                         <View style={styles.imagePreviewContainer}>
                                             <Image source={{ uri: image }} style={styles.imagePreview} />
@@ -319,9 +340,9 @@ export const AddMedicationScreen = () => {
                                         </View>
                                     ) : (
                                         <View style={styles.photoActions}>
-                                            <TouchableOpacity style={styles.photoBtn} onPress={takePhoto}>
-                                                <Ionicons name="camera" size={24} color={theme.colors.primary} />
-                                                <Text style={styles.photoBtnText}>Tirar Foto</Text>
+                                            <TouchableOpacity style={[styles.photoBtn, { backgroundColor: theme.colors.primary }]} onPress={takePhoto}>
+                                                <Ionicons name="camera" size={24} color="#FFF" />
+                                                <Text style={[styles.photoBtnText, { color: '#FFF' }]}>Tirar Foto Agora</Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
                                                 <Ionicons name="image" size={24} color={theme.colors.primary} />
@@ -594,6 +615,18 @@ const styles = StyleSheet.create({
         color: theme.colors.primary,
         fontFamily: theme.fonts.bold,
         fontSize: 14,
+    },
+    warningBadge: {
+        backgroundColor: theme.colors.accent + '20',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    warningText: {
+        color: theme.colors.accent,
+        fontSize: 10,
+        fontFamily: theme.fonts.bold,
+        textTransform: 'uppercase',
     },
     imagePreviewContainer: {
         width: '100%',
