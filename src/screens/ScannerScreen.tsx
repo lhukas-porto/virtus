@@ -54,7 +54,18 @@ export const ScannerScreen = () => {
         } catch (e) {
             setIdentifying(false);
             setScanned(false);
-            Alert.alert('Erro', 'Houve um problema ao identificar o remédio.');
+            // Em caso de erro (como falha de rede), tratamos como "não encontrado" para permitir entrada manual
+            const queryFail = 'Não foi possível buscar os detalhes agora. Deseja cadastrar manualmente?';
+            if (Platform.OS === 'web') {
+                if (window.confirm(queryFail)) {
+                    navigation.navigate('AddMedication', { barcode: data });
+                }
+            } else {
+                Alert.alert('Aviso', queryFail, [
+                    { text: 'Não', style: 'cancel' },
+                    { text: 'Sim', onPress: () => navigation.navigate('AddMedication', { barcode: data }) }
+                ]);
+            }
         }
     };
 
@@ -132,7 +143,7 @@ export const ScannerScreen = () => {
                             onPress={() => navigation.navigate('AddMedication')}
                         >
                             <Ionicons name="create-outline" size={24} color="#FFF" />
-                            <Text style={styles.manualButtonText}>Digitar Nome</Text>
+                            <Text style={styles.manualButtonText}>Cadastrar manualmente</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity

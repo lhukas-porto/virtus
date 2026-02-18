@@ -66,23 +66,10 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
             return samples[gtin];
         }
 
-        // Generic fallback logic using a search engine approach (simulated)
-        // A real implementation would fetch from an API like Cosmos or GS1
-        const response = await fetch(`https://api.produto.xyz/v1/gtin/${gtin}`);
-        if (response.ok) {
-            const data = await response.json();
-            if (data && data.description) {
-                return {
-                    name: data.description,
-                    image: data.thumbnail,
-                    brand: data.brand
-                };
-            }
-        }
-
+        // Removed unreliable fetch to prevent Network Request Failed errors on mobile
         return null;
     } catch (error) {
-        console.error("Medicine identification error:", error);
+        // Just return null silently so the UI can show the manual entry option
         return null;
     }
 };
