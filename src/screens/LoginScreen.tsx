@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, Image, Modal } from 'react-native';
 import { supabase } from '../services/supabase';
 import { theme } from '../theme/theme';
 import { Button } from '../components/Button';
@@ -26,33 +26,28 @@ export const LoginScreen = () => {
         }
     };
 
-    const handleSignUp = async () => {
-        console.log('Tentando cadastrar:', email);
+    const [showNameModal, setShowNameModal] = useState(false);
+    const [tempName, setTempName] = useState('');
+
+    const startSignUp = () => {
         if (!email || !password) {
             const msg = 'Por favor, preencha E-mail e Senha primeiro.';
             if (Platform.OS === 'web') window.alert(msg);
             else Alert.alert('Ops!', msg);
             return;
         }
+        setTempName('');
+        setShowNameModal(true);
+    };
 
-        // Pergunta como quer ser chamado (Caixa de Pergunta)
-        let chosenName = "";
-        const question = "Como você quer ser chamado? (Ex: Maria)";
-
-        if (Platform.OS === 'web') {
-            chosenName = window.prompt(question) || "";
-        } else {
-            // No mobile, usamos o prompt do Alert (iOS) ou um valor padrão/placeholder
-            // Para manter a simplicidade solicitada pelo Lucas:
-            chosenName = "Usuário Vitus";
-        }
-
-        if (!chosenName) {
-            const msg = 'Precisamos de um nome para continuar o cadastro.';
-            if (Platform.OS === 'web') window.alert(msg);
-            else Alert.alert('Ops!', msg);
+    const confirmSignUp = async () => {
+        if (!tempName.trim()) {
+            Alert.alert('Ops!', 'Precisamos de um nome para continuar.');
             return;
         }
+
+        setShowNameModal(false);
+        const firstName = tempName.trim().split(' ')[0]; // Usa apenas o primeiro nome
 
         setLoading(true);
         try {
@@ -60,7 +55,7 @@ export const LoginScreen = () => {
                 email,
                 password,
                 options: {
-                    data: { name: chosenName }
+                    data: { name: firstName }
                 }
             });
 
@@ -70,7 +65,7 @@ export const LoginScreen = () => {
                 if (Platform.OS === 'web') window.alert(error.message);
                 else Alert.alert('Ops!', error.message);
             } else {
-                const msg = 'Sucesso, conta criada';
+                const msg = `Bem-vindo, ${firstName}! Conta criada com sucesso.`;
                 if (Platform.OS === 'web') window.alert(msg);
                 else Alert.alert('Sucesso', msg);
             }
@@ -130,13 +125,48 @@ export const LoginScreen = () => {
 
                     <Button
                         title="Criar nova conta"
-                        onPress={handleSignUp}
+                        onPress={startSignUp}
                         type="secondary"
                         style={styles.signupButton}
                         textStyle={styles.signupText}
                     />
                 </View>
             </ScrollView>
+
+            {/* Modal de Nome */}
+            <Modal
+                visible={showNameModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowNameModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Como você quer ser chamado?</Text>
+                        <Text style={{ marginBottom: 12, color: '#666' }}>Usaremos este nome para seus alarmes.</Text>
+                        <TextInput
+                            style={styles.modalInput}
+                            value={tempName}
+                            onChangeText={setTempName}
+                            placeholder="Ex: Maria"
+                            autoFocus
+                        />
+                        <View style={styles.modalButtons}>
+                            <Button
+                                title="Cancelar"
+                                type="secondary"
+                                onPress={() => setShowNameModal(false)}
+                                style={{ flex: 1, marginRight: 8 }}
+                            />
+                            <Button
+                                title="Continuar"
+                                onPress={confirmSignUp}
+                                style={{ flex: 1, marginLeft: 8 }}
+                            />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
             <View style={styles.footerBranding}>
                 <Text style={styles.brandingLabel}>Desenvolvido por</Text>
                 <Image
@@ -260,5 +290,37 @@ const styles = StyleSheet.create({
         borderRadius: 300,
         backgroundColor: 'rgba(194, 86, 61, 0.015)', // Mais sutil ainda
         zIndex: 0,
-    }
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        padding: 24,
+    },
+    modalContent: {
+        backgroundColor: '#FFF',
+        borderRadius: 16,
+        padding: 24,
+        elevation: 5,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontFamily: theme.fonts.bold,
+        marginBottom: 8,
+        color: theme.colors.text,
+        textAlign: 'center',
+    },
+    modalInput: {
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+        marginBottom: 24,
+        backgroundColor: '#F9F9F9',
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
 });

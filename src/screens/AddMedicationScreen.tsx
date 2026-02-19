@@ -10,6 +10,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { scheduleMedicationReminder, requestNotificationPermissions } from '../services/notifications';
 import * as ImagePicker from 'expo-image-picker';
+import { identifyMedicineByGTIN } from '../services/medicineIdentification';
 
 const FREQUENCIES = [
     { label: 'Diário', value: '24' },
@@ -39,6 +40,10 @@ export const AddMedicationScreen = () => {
     const [dosage, setDosage] = useState(editMedication?.dosage || '');
     const [instructions, setInstructions] = useState(initialDescription);
     const [loading, setLoading] = useState(false);
+
+    // EAN Search State
+    const [ean, setEan] = useState(initialBarcode);
+    const [loadingEan, setLoadingEan] = useState(false);
 
     const initialImage = editMedication?.image_url || (medInfo?.image && medInfo.image.startsWith('http') ? medInfo.image : null);
     const [image, setImage] = useState<string | null>(initialImage);
@@ -200,6 +205,28 @@ export const AddMedicationScreen = () => {
         }
     };
 
+    const handleSearchEAN = async () => {
+        if (!ean || ean.length < 8) return;
+        setLoadingEan(true);
+        try {
+            const result = await identifyMedicineByGTIN(ean);
+            if (result) {
+                if (result.name) setName(result.name);
+                if (result.brand) setBrand(result.brand);
+                if (result.description) setInstructions(result.description);
+                if (result.image) setImage(result.image);
+                if (result.dosage) setDosage(result.dosage || '');
+                Alert.alert('Sucesso', 'Medicamento encontrado no catálogo!');
+            } else {
+                Alert.alert('Não encontrado', 'Não encontramos este código no nosso catálogo.');
+            }
+        } catch (e) {
+            Alert.alert('Erro', 'Falha ao buscar código EAN.');
+        } finally {
+            setLoadingEan(false);
+        }
+    };
+
 
 
     return (
@@ -315,16 +342,39 @@ export const AddMedicationScreen = () => {
                                     />
                                 </View>
 
-                                {/* EAN */}
-                                {initialBarcode ? (
-                                    <View style={styles.inputGroup}>
-                                        <Text style={styles.label}>Código de barras (EAN)</Text>
-                                        <View style={[styles.input, { backgroundColor: '#F0F4F1', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-                                            <Text style={{ fontFamily: theme.fonts.body, color: theme.colors.text }}>{initialBarcode}</Text>
-                                            <Ionicons name="barcode-outline" size={20} color={theme.colors.primary} />
-                                        </View>
+                                {/* EAN Input */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Código de barras (EAN)</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <TextInput
+                                            style={[styles.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0 }]}
+                                            value={ean}
+                                            onChangeText={setEan}
+                                            placeholder="Digite ou scaneie o EAN"
+                                            keyboardType="numeric"
+                                            onBlur={() => { if (ean && ean.length > 7) handleSearchEAN(); }}
+                                        />
+                                        <TouchableOpacity
+                                            style={{
+                                                height: 50,
+                                                backgroundColor: theme.colors.primary,
+                                                paddingHorizontal: 16,
+                                                borderTopRightRadius: 12,
+                                                borderBottomRightRadius: 12,
+                                                justifyContent: 'center',
+                                                alignItems: 'center'
+                                            }}
+                                            onPress={handleSearchEAN}
+                                            disabled={loadingEan}
+                                        >
+                                            {loadingEan ? (
+                                                <ActivityIndicator color="#FFF" size="small" />
+                                            ) : (
+                                                <Ionicons name="search" size={20} color="#FFF" />
+                                            )}
+                                        </TouchableOpacity>
                                     </View>
-                                ) : null}
+                                </View>
 
                                 {/* Dosagem */}
                                 <View style={styles.inputGroup}>

@@ -15,6 +15,7 @@ export const ProfileScreen = () => {
 
     const [name, setName] = useState(profile?.name || session?.user?.user_metadata?.name || '');
     const [cpf, setCpf] = useState(session?.user?.user_metadata?.cpf || '');
+    const [phone, setPhone] = useState(session?.user?.user_metadata?.phone || '');
     const [avatar, setAvatar] = useState(session?.user?.user_metadata?.avatar_url || null);
 
     const [isEditing, setIsEditing] = useState(false);
@@ -26,6 +27,7 @@ export const ProfileScreen = () => {
             if (!isEditing) {
                 setName(meta.name || '');
                 setCpf(meta.cpf || '');
+                setPhone(meta.phone || '');
                 setAvatar(meta.avatar_url || null);
             }
         }
@@ -115,12 +117,32 @@ export const ProfileScreen = () => {
         }
     };
 
+    const formatPhone = (text: string) => {
+        const cleaned = text.replace(/\D/g, '');
+        let formatted = cleaned;
+
+        if (cleaned.length > 0) {
+            formatted = `(${cleaned.substring(0, 2)}`;
+        }
+        if (cleaned.length > 2) {
+            formatted += `) ${cleaned.substring(2, 3)}`;
+        }
+        if (cleaned.length > 3) {
+            formatted += ` ${cleaned.substring(3, 7)}`;
+        }
+        if (cleaned.length > 7) {
+            formatted += `-${cleaned.substring(7, 11)}`;
+        }
+        return formatted;
+    };
+
     const handleSave = async () => {
         setLoading(true);
         try {
             const updates = {
                 name,
                 cpf,
+                phone,
                 avatar_url: avatar
             };
 
@@ -230,12 +252,23 @@ export const ProfileScreen = () => {
                                 keyboardType="numeric"
                                 maxLength={14}
                             />
+
+                            <Text style={styles.label}>Celular</Text>
+                            <TextInput
+                                value={phone}
+                                onChangeText={(t) => setPhone(formatPhone(t))}
+                                style={styles.input}
+                                placeholder="(00) 0 0000-0000"
+                                keyboardType="numeric"
+                                maxLength={16}
+                            />
                         </View>
                     ) : (
                         <>
                             <Text style={styles.name}>{name || 'Usuário Vitus'}</Text>
                             <Text style={styles.email}>{session?.user?.email}</Text>
                             {cpf ? <Text style={styles.cpf}>CPF: {cpf}</Text> : null}
+                            {phone ? <Text style={styles.cpf}>Tel: {phone}</Text> : null}
                         </>
                     )}
                 </View>
@@ -273,6 +306,7 @@ export const ProfileScreen = () => {
                             type="danger"
                             onPress={handleLogout}
                             style={styles.logoutButton}
+                            icon="log-out-outline"
                         />
 
                         <Text style={styles.versionText}>Vitus v1.0.1</Text>

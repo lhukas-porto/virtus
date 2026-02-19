@@ -1,6 +1,7 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator, View } from 'react-native';
 import { theme } from '../theme/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 interface ButtonProps {
     title: string;
@@ -10,6 +11,7 @@ interface ButtonProps {
     textStyle?: TextStyle;
     loading?: boolean;
     disabled?: boolean;
+    icon?: keyof typeof Ionicons.glyphMap;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -19,7 +21,8 @@ export const Button: React.FC<ButtonProps> = ({
     style,
     textStyle,
     loading = false,
-    disabled = false
+    disabled = false,
+    icon
 }) => {
     const isPrimary = type === 'primary';
     const textColor = isPrimary ? '#FFF' : (type === 'danger' ? theme.colors.alert : theme.colors.primary);
@@ -39,13 +42,16 @@ export const Button: React.FC<ButtonProps> = ({
             {loading ? (
                 <ActivityIndicator color={textColor} />
             ) : (
-                <Text style={[
-                    styles.text,
-                    { color: textColor },
-                    textStyle
-                ]}>
-                    {title}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                    {icon && <Ionicons name={icon} size={20} color={textColor} style={{ marginRight: 8 }} />}
+                    <Text style={[
+                        styles.text,
+                        { color: textColor },
+                        textStyle
+                    ]}>
+                        {title}
+                    </Text>
+                </View>
             )}
         </TouchableOpacity>
     );

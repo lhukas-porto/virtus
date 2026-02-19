@@ -10,6 +10,7 @@ export interface IdentificationResult {
     image?: string;
     description?: string;
     bulaUrl?: string;
+    dosage?: string;
 }
 
 /**
@@ -30,7 +31,8 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
                     name: data.name,
                     brand: data.brand || '',
                     image: data.image_url || undefined,
-                    description: data.description || 'Identificado no Catálogo Vitus.'
+                    description: data.description || 'Identificado no Catálogo Vitus.',
+                    dosage: data.dosage || undefined
                 };
             }
         } catch (dbError) {
