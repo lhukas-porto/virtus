@@ -15,6 +15,9 @@ import {
 
 import { View, Text } from 'react-native';
 
+import { AlarmOverlay } from './src/components/AlarmOverlay';
+import { initializeNotifications } from './src/services/notifications';
+
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
@@ -29,6 +32,7 @@ export default function App() {
     useEffect(() => {
         if (fontsLoaded) {
             SplashScreen.hideAsync();
+            initializeNotifications();
         }
     }, [fontsLoaded]);
 
@@ -43,6 +47,7 @@ export default function App() {
     return (
         <AuthProvider>
             <RootNavigation />
+            <AlarmOverlay />
         </AuthProvider>
     );
 }

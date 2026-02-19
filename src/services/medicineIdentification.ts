@@ -2,6 +2,8 @@
  * Medicine scraping and identification service
  */
 
+import { supabase } from './supabase';
+
 export interface IdentificationResult {
     name: string;
     brand?: string;
@@ -15,7 +17,27 @@ export interface IdentificationResult {
  */
 export const identifyMedicineByGTIN = async (gtin: string): Promise<IdentificationResult | null> => {
     try {
-        // Core local database for guaranteed "wow" factor on common meds
+        // 1. Check Global Catalog in Supabase (Centralized Database)
+        try {
+            const { data, error } = await supabase
+                .from('medication_catalog')
+                .select('*')
+                .eq('ean', gtin)
+                .maybeSingle();
+
+            if (data && !error) {
+                return {
+                    name: data.name,
+                    brand: data.brand || '',
+                    image: data.image_url || undefined,
+                    description: data.description || 'Identificado no Catálogo Vitus.'
+                };
+            }
+        } catch (dbError) {
+            console.log('Error querying medication_catalog, skipping to local/api...', dbError);
+        }
+
+        // 2. Core local database for guaranteed "wow" factor on common meds
         const samples: Record<string, IdentificationResult> = {
             "7894916203021": {
                 name: "Dorflex",
@@ -82,34 +104,40 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
 
                     // Logic for OpenFoodFacts / OpenBeautyFacts
                     if (data.product && data.product.product_name) {
-                        return {
+                        const result: IdentificationResult = {
                             name: data.product.product_name,
                             brand: data.product.brands || '',
                             image: data.product.image_url || undefined,
                             description: data.product.generic_name || 'Identificado via rede mundial.'
                         };
+                        saveToGlobalCatalog(gtin, result);
+                        return result;
                     }
 
                     // Logic for UPCItemDB
                     if (data.items && data.items.length > 0) {
                         const item = data.items[0];
-                        return {
+                        const result: IdentificationResult = {
                             name: item.title,
                             brand: item.brand || '',
                             image: item.images && item.images.length > 0 ? item.images[0] : undefined,
                             description: 'Encontrado em base internacional de produtos.'
                         };
+                        saveToGlobalCatalog(gtin, result);
+                        return result;
                     }
 
                     // Logic for EAN-Search
                     if (Array.isArray(data) && data.length > 0 && data[0].name) {
                         const item = data[0];
-                        return {
+                        const result: IdentificationResult = {
                             name: item.name,
                             brand: '', // EAN-Search basic response might not split brand
                             image: undefined, // Basic tier might not include image URL in JSON
                             description: 'Identificado via EAN-Search API.'
                         };
+                        saveToGlobalCatalog(gtin, result);
+                        return result;
                     }
                 }
             } catch (err) {
@@ -119,6 +147,22 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
 
         return null;
     } catch (error) {
-        return null; // Silent fail to allow manual entry
+        console.error("Error identifying medicine:", error);
+        return null;
+    }
+};
+
+const saveToGlobalCatalog = async (ean: string, data: IdentificationResult) => {
+    try {
+        await supabase.from('medication_catalog').upsert({
+            ean,
+            name: data.name,
+            brand: data.brand || null,
+            description: data.description || null,
+            image_url: data.image || null,
+            updated_at: new Date()
+        });
+    } catch (e) {
+        console.warn('Failed to cache medicine in global catalog', e);
     }
 };

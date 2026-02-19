@@ -2,16 +2,15 @@ const fs = require('fs');
 const path = require('path');
 
 // INSTRUÇÕES:
-// 1. Baixe a "Lista de Preços de Medicamentos" (XLS/XLSX) mais recente no site da ANVISA.
-// 2. Salve como 'medicamentos.xlsx' na pasta raiz do projeto Vitus.
-// 3. npm install xlsx
-// 4. node scripts/generate_catalog_node.js
+// 1. Certifique-se de que o arquivo 'medicamentos.csv' esteja na pasta raiz do projeto.
+// 2. npm install xlsx (se ainda não tiver instalado)
+// 3. node scripts/generate_catalog_csv.js
 
-const INPUT_FILE = path.join(__dirname, '..', 'medicamentos.xlsx');
-const PARTS_DIR = path.join(__dirname, '..', 'supabase', 'migrations', 'seed_parts');
+const INPUT_FILE = path.join(__dirname, '..', 'medicamentos.csv');
+const PARTS_DIR = path.join(__dirname, '..', 'supabase', 'migrations', 'seed_parts_csv'); // Pasta separada para não misturar
 const RECORDS_PER_FILE = 4000;
 
-async function generateSql() {
+async function generateSqlFromCsv() {
     try {
         let XLSX;
         try {
@@ -27,7 +26,10 @@ async function generateSql() {
         }
 
         console.log(`\n📖 Lendo ${INPUT_FILE}...`);
-        const workbook = XLSX.readFile(INPUT_FILE);
+
+        // Ler CSV - Tentando identificar encoding automaticamente ou forçar leitura como string
+        // Obs: O CSV parece ter problemas de encoding no cabeçalho. Vamos ser flexíveis na busca.
+        const workbook = XLSX.readFile(INPUT_FILE, { type: 'file' });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
@@ -38,54 +40,52 @@ async function generateSql() {
         let eanColIdx = -1;
         let prodColIdx = -1;
         let labColIdx = -1;
-        let apreColIdx = -1; // Apresentação
-        let classColIdx = -1; // Classe Terapêutica
+        let classColIdx = -1;
 
         console.log("🔍 Buscando colunas...");
 
-        for (let i = 0; i < Math.min(rows.length, 100); i++) {
+        // Detectar colunas com regex flexível para ignorar erros de acentuação/encoding
+        for (let i = 0; i < Math.min(rows.length, 20); i++) {
             const row = rows[i];
             if (!row || !Array.isArray(row)) continue;
             const rowStr = row.map(c => String(c).toUpperCase());
 
-            // Critérios de busca
+            // Critérios de busca mais permissivos
             const hasEan = rowStr.some(c => c.includes('EAN') || c.includes('BARRAS'));
-            const hasProd = rowStr.some(c => c.includes('PRODUTO') || c.includes('SUBSTÂNCIA') || c.includes('SUBSTANCIA'));
+            const hasLab = rowStr.some(c => c.includes('LAB') || c.includes('BORAT') || c.includes('ORAT')); // Pega LABORATÓRIO, BORATÓRIO, etc.
 
-            if (hasEan || hasProd) {
-                if (hasEan && hasProd) {
-                    headerRowIndex = i;
-                    console.log(`✅ Cabeçalho detectado na linha ${i + 1}`);
-                    console.log(`   Colunas encontradas: ${JSON.stringify(rowStr)}`);
+            if (hasEan || hasLab) {
+                headerRowIndex = i;
+                console.log(`✅ Cabeçalho detectado na linha ${i + 1}`);
+                console.log(`   Colunas encontradas: ${JSON.stringify(rowStr)}`);
 
-                    rowStr.forEach((col, idx) => {
-                        // EAN
-                        if (col.includes('EAN') && col.includes('1')) eanColIdx = idx;
-                        else if (col.includes('EAN') && eanColIdx === -1) eanColIdx = idx;
-                        else if (col.includes('BARRAS') && eanColIdx === -1) eanColIdx = idx;
+                rowStr.forEach((col, idx) => {
+                    // EAN
+                    if (col.includes('EAN') && col.includes('1')) eanColIdx = idx;
+                    else if (col.includes('EAN') && eanColIdx === -1) eanColIdx = idx;
 
-                        // NAME (PRODUTO)
-                        if (col.includes('PRODUTO')) prodColIdx = idx;
-                        else if ((col.includes('SUBSTÂNCIA') || col.includes('SUBSTANCIA')) && prodColIdx === -1) prodColIdx = idx;
+                    // PRODUTO / NOME
+                    if (col.includes('PRODUTO') || col.includes('NOME')) prodColIdx = idx;
 
-                        // BRAND (LABORATÓRIO)
-                        if (col.includes('LABORATÓRIO') || col.includes('LABORATORIO')) labColIdx = idx;
+                    // LABORATÓRIO / BRAND
+                    if (col.includes('LAB') || col.includes('BORAT') || col.includes('ORAT')) labColIdx = idx;
 
-                        // APRESENTAÇÃO
-                        if (col.includes('APRESENTAÇÃO') || col.includes('APRESENTACAO')) apreColIdx = idx;
-
-                        // DESCRIPTION (CLASSE TERAPÊUTICA)
-                        if (col.includes('CLASSE') && (col.includes('TERAPÊUTICA') || col.includes('TERAPEUTICA'))) classColIdx = idx;
-                    });
-
-                    break;
-                }
+                    // CLASSE / DESCRIÇÃO
+                    if (col.includes('CLASSE') || col.includes('TERAP') || col.includes('TERA')) classColIdx = idx;
+                });
+                break;
             }
         }
 
-        if (headerRowIndex === -1 || eanColIdx === -1 || prodColIdx === -1) {
-            console.error('❌ Não foi possível identificar as colunas automaticamente (EAN e PRODUTO obrigatórios).');
-            process.exit(1);
+        if (headerRowIndex === -1 || eanColIdx === -1) {
+            console.error('❌ Não foi possível identificar as colunas (EAN não encontrado).');
+            // Fallback manual baseado no padrão visto
+            console.log('⚠️ Usando fallback posicional: 0=Lab, 1=EAN, 2=Prod, 3=Classe');
+            headerRowIndex = 0;
+            labColIdx = 0;
+            eanColIdx = 1;
+            prodColIdx = 2;
+            classColIdx = 3;
         }
 
         // Preparar output
@@ -97,43 +97,43 @@ async function generateSql() {
         let currentRecords = 0;
         let batch = [];
         let seenEans = new Set();
-        let currentFile = path.join(PARTS_DIR, `part_${fileCounter}.sql`);
+        let currentFile = path.join(PARTS_DIR, `part_csv_${fileCounter}.sql`);
         let stream = fs.createWriteStream(currentFile, { encoding: 'utf8' });
 
         console.log(`📂 Gerando arquivos em: ${PARTS_DIR}`);
         console.log(`📝 Escrevendo parte ${fileCounter}...`);
 
-        stream.write(`-- Part ${fileCounter}\n`);
+        stream.write(`-- Part ${fileCounter} (From CSV)\n`);
         stream.write("INSERT INTO public.medication_catalog (ean, name, brand, description) VALUES\n");
 
         for (let i = headerRowIndex + 1; i < rows.length; i++) {
             const row = rows[i];
-            if (!row || !row[eanColIdx]) continue;
+            if (!row || row.length < 2) continue;
+
+            const rowEan = row[eanColIdx];
+            if (!rowEan) continue;
 
             // Limpeza EAN
-            let ean = String(row[eanColIdx]).replace(/\D/g, '');
+            let ean = String(rowEan).replace(/\D/g, '');
             if (ean.length < 8 || ean.length > 14) continue;
             if (seenEans.has(ean)) continue;
             seenEans.add(ean);
 
-            // Extração de dados crus
-            let rawProduct = String(row[prodColIdx] || '').trim();
-            let rawApreset = apreColIdx > -1 ? String(row[apreColIdx] || '').trim() : '';
+            // Extração
+            let rawProduct = prodColIdx > -1 ? String(row[prodColIdx] || '').trim() : '';
             let rawLab = labColIdx > -1 ? String(row[labColIdx] || '').trim() : '';
             let rawClass = classColIdx > -1 ? String(row[classColIdx] || '').trim() : '';
 
-            // --- LÓGICA DE MAPEAMENTO PERSONALIZADA ---
+            // --- DE PARA ---
+            // Name <- Produto
+            let name = rawProduct.replace(/'/g, "''").substring(0, 250);
 
-            // NAME = PRODUTO + ' - ' + APRESENTAÇÃO (Concatenado para ficar completo)
-            let name = `${rawProduct} ${rawApreset}`.trim().replace(/'/g, "''").substring(0, 250);
+            // Brand <- Laboratório (Completo desta vez)
+            let brand = rawLab.replace(/'/g, "''").substring(0, 100);
 
-            // BRAND = LABORATÓRIO (Apenas o primeiro nome)
-            let brand = rawLab.split(' ')[0].replace(/'/g, "''").substring(0, 100);
-
-            // DESCRIPTION = CLASSE TERAPÊUTICA
+            // Description <- Classe Terapêutica
             let desc = rawClass.replace(/'/g, "''").substring(0, 500);
 
-            // Adiciona ao batch
             batch.push(`('${ean}', '${name}', '${brand}', '${desc}')`);
             currentRecords++;
 
@@ -151,10 +151,10 @@ async function generateSql() {
                     if (i < rows.length - 1) {
                         fileCounter++;
                         currentRecords = 0;
-                        currentFile = path.join(PARTS_DIR, `part_${fileCounter}.sql`);
+                        currentFile = path.join(PARTS_DIR, `part_csv_${fileCounter}.sql`);
                         stream = fs.createWriteStream(currentFile, { encoding: 'utf8' });
                         console.log(`📝 Escrevendo parte ${fileCounter}...`);
-                        stream.write(`-- Part ${fileCounter}\n`);
+                        stream.write(`-- Part ${fileCounter} (From CSV)\n`);
                         stream.write("INSERT INTO public.medication_catalog (ean, name, brand, description) VALUES\n");
                     }
                 } else {
@@ -171,11 +171,12 @@ async function generateSql() {
 
         stream.end();
         console.log(`✅ Parte ${fileCounter} salva.`);
-        console.log(`\n🎉 Concluído! Total de ${seenEans.size} medicamentos divididos em ${fileCounter} arquivos.`);
+        console.log(`\n🎉 Concluído! Total de ${seenEans.size} medicamentos processados do CSV.`);
+        console.log(`👉 Vá no Supabase > SQL Editor e execute os arquivos da pasta 'supabase/migrations/seed_parts_csv/' um por um.`);
 
     } catch (error) {
         console.error('\n❌ Erro:', error);
     }
 }
 
-generateSql();
+generateSqlFromCsv();

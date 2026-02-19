@@ -13,21 +13,33 @@ export const MedicationDetailScreen = () => {
 
     const [showImageModal, setShowImageModal] = useState(false);
     const [med, setMed] = useState(medication);
+    const [reminders, setReminders] = useState<any[]>([]);
 
     useFocusEffect(
         React.useCallback(() => {
-            const fetchLatestData = async () => {
-                const { data, error } = await supabase
+            const fetchData = async () => {
+                // Fetch med data
+                const { data: medData, error: medError } = await supabase
                     .from('medications')
                     .select('*')
                     .eq('id', medication.id)
                     .single();
 
-                if (data && !error) {
-                    setMed(data);
+                if (medData && !medError) {
+                    setMed(medData);
+                }
+
+                // Fetch reminders
+                const { data: remData, error: remError } = await supabase
+                    .from('medication_reminders')
+                    .select('*')
+                    .eq('medication_id', medication.id);
+
+                if (remData) {
+                    setReminders(remData);
                 }
             };
-            fetchLatestData();
+            fetchData();
         }, [medication.id])
     );
 
@@ -147,21 +159,37 @@ export const MedicationDetailScreen = () => {
                             </View>
                         ) : null}
 
-                        {/* Alarme */}
-                        {alarmInfo ? (
-                            <View style={styles.alarmCard}>
-                                <View style={styles.summaryHeader}>
-                                    <Ionicons name="alarm-outline" size={20} color={theme.colors.accent} />
-                                    <Text style={[styles.summaryTitle, { color: theme.colors.accent }]}>Alarme Configurado</Text>
-                                </View>
-                                <Text style={styles.alarmText}>{alarmInfo}</Text>
+                        {/* Alarme Section (New) */}
+                        <View style={styles.actionCard}>
+                            <View style={styles.summaryHeader}>
+                                <Ionicons name="alarm-outline" size={20} color={theme.colors.accent} />
+                                <Text style={[styles.summaryTitle, { color: theme.colors.accent }]}>Alarmes</Text>
                             </View>
-                        ) : (
-                            <View style={styles.noAlarmCard}>
-                                <Ionicons name="alarm-outline" size={20} color={theme.colors.border} />
-                                <Text style={styles.noAlarmText}>Sem alarme configurado</Text>
-                            </View>
-                        )}
+
+                            {reminders.length > 0 ? (
+                                reminders.map((rem, i) => (
+                                    <View key={rem.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingLeft: 8 }}>
+                                        <Ionicons name="time-outline" size={16} color={theme.colors.text} style={{ opacity: 0.6, marginRight: 8 }} />
+                                        <Text style={{ fontFamily: theme.fonts.bold, fontSize: 16 }}>
+                                            {rem.reminder_time.slice(0, 5)}
+                                        </Text>
+                                        <Text style={{ fontFamily: theme.fonts.body, marginLeft: 8, opacity: 0.7 }}>
+                                            (A cada {rem.frequency_hours}h)
+                                        </Text>
+                                    </View>
+                                ))
+                            ) : (
+                                <Text style={styles.noAlarmText}>Nenhum alarme configurado.</Text>
+                            )}
+
+                            <TouchableOpacity
+                                style={styles.addAlarmBtn}
+                                onPress={() => navigation.navigate('AlarmConfig', { medicationId: med.id, medicationName: med.name })}
+                            >
+                                <Ionicons name="add-circle" size={20} color={theme.colors.primary} />
+                                <Text style={styles.addAlarmText}>Novo Alarme</Text>
+                            </TouchableOpacity>
+                        </View>
 
                         {/* Código de barras */}
                         {med.barcode ? (
@@ -338,22 +366,32 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.primary + '20',
     },
-    alarmCard: {
-        backgroundColor: theme.colors.accent + '08',
+    actionCard: {
+        backgroundColor: '#FFF',
         borderRadius: 16,
         padding: 16,
         marginTop: 12,
         borderWidth: 1,
-        borderColor: theme.colors.accent + '20',
+        borderColor: '#E0E0E0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        elevation: 2,
     },
-    noAlarmCard: {
+    addAlarmBtn: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 8,
-        backgroundColor: '#F5F5F5',
-        borderRadius: 16,
-        padding: 16,
         marginTop: 12,
+        paddingVertical: 10,
+        backgroundColor: theme.colors.primary + '10',
+        borderRadius: 12,
+    },
+    addAlarmText: {
+        color: theme.colors.primary,
+        fontFamily: theme.fonts.bold,
+        fontSize: 14,
     },
     summaryHeader: {
         flexDirection: 'row',
@@ -372,11 +410,6 @@ const styles = StyleSheet.create({
         fontFamily: theme.fonts.body,
         color: theme.colors.text,
         lineHeight: 24,
-    },
-    alarmText: {
-        fontSize: 16,
-        fontFamily: theme.fonts.bold,
-        color: theme.colors.accent,
     },
     noAlarmText: {
         fontSize: 14,

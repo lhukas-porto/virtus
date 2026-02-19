@@ -27,7 +27,17 @@ Para ter um banco de dados completo, siga os passos abaixo:
 5.  O script criará o diretório `supabase/migrations/seed_parts/` contendo arquivos `part_1.sql`, `part_2.sql`, etc.
 6.  Copie e execute **CADA ARQUIVO** no Supabase SQL Editor, um por vez, para evitar erros de limite de tamanho.
 
-### Opção 2: Python
+### Opção 2: CSV (Alternativa para 'medicamentos.csv')
+
+Se você tiver o arquivo `medicamentos.csv` na raiz do projeto:
+1.  Execute:
+    ```bash
+    node scripts/generate_catalog_csv.js
+    ```
+2.  Os arquivos SQL serão gerados em `supabase/migrations/seed_parts_csv/`.
+3.  Execute cada arquivo no Supabase SQL Editor.
+
+### Opção 3: Python (Legado)
 
 1.  Siga os passos 1 e 2 acima.
 2.  Instale as dependências:

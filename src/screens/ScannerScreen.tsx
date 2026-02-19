@@ -109,7 +109,7 @@ export const ScannerScreen = () => {
                             {identifying && (
                                 <View style={styles.loadingOverlay}>
                                     <ActivityIndicator size="large" color={theme.colors.primary} />
-                                    <Text style={styles.loadingText}>Identificando...</Text>
+                                    <Text style={styles.loadingText}>Buscando medicamento...</Text>
                                 </View>
                             )}
                         </View>
@@ -137,12 +137,7 @@ export const ScannerScreen = () => {
                 </SafeAreaView>
             </CameraView>
 
-            {identifying && (
-                <View style={styles.loadingOverlay}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                    <Text style={styles.loadingText}>Buscando informações...</Text>
-                </View>
-            )}
+
         </View>
     );
 };

@@ -15,6 +15,9 @@ import { AddMedicationScreen } from '../screens/AddMedicationScreen';
 import { ScannerScreen } from '../screens/ScannerScreen';
 import { MedicationListScreen } from '../screens/MedicationListScreen';
 import { MedicationDetailScreen } from '../screens/MedicationDetailScreen';
+import { AlarmConfigScreen } from '../screens/AlarmConfigScreen';
+import { SelectMedicationScreen } from '../screens/SelectMedicationScreen';
+import { ReportsScreen } from '../screens/ReportsScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 
 const Tab = createBottomTabNavigator();
@@ -28,7 +31,7 @@ function AppTabs() {
                     let iconName;
                     if (route.name === 'Alarmes') iconName = focused ? 'alarm' : 'alarm-outline';
                     else if (route.name === 'Monitoramento') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-                    else if (route.name === 'Medicamentos') iconName = focused ? 'medical' : 'medical-outline';
+                    else if (route.name === 'Farmacia') iconName = focused ? 'medical' : 'medical-outline';
                     else if (route.name === 'Perfil') iconName = focused ? 'person' : 'person-outline';
 
                     return <Ionicons name={iconName as any} size={size} color={color} />;
@@ -51,9 +54,9 @@ function AppTabs() {
                 options={{ tabBarLabel: 'Monitoramento' }}
             />
             <Tab.Screen
-                name="Medicamentos"
+                name="Farmacia"
                 component={MedicationListScreen}
-                options={{ tabBarLabel: 'Medicamentos' }}
+                options={{ tabBarLabel: 'Farmácia' }}
             />
             <Tab.Screen name="Perfil" component={ProfileScreen} />
         </Tab.Navigator>
@@ -81,6 +84,9 @@ export default function RootNavigation() {
                         <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
                         <Stack.Screen name="Scanner" component={ScannerScreen} />
                         <Stack.Screen name="MedicationDetail" component={MedicationDetailScreen} />
+                        <Stack.Screen name="AlarmConfig" component={AlarmConfigScreen} />
+                        <Stack.Screen name="SelectMedication" component={SelectMedicationScreen} />
+                        <Stack.Screen name="Reports" component={ReportsScreen} />
                     </>
                 ) : (
                     <Stack.Screen name="Login" component={LoginScreen} />

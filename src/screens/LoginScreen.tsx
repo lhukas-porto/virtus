@@ -70,9 +70,9 @@ export const LoginScreen = () => {
                 if (Platform.OS === 'web') window.alert(error.message);
                 else Alert.alert('Ops!', error.message);
             } else {
-                const msg = `Sucesso, ${chosenName}! Verifique seu e-mail para confirmar.`;
+                const msg = 'Sucesso, conta criada';
                 if (Platform.OS === 'web') window.alert(msg);
-                else Alert.alert('Sucesso!', msg);
+                else Alert.alert('Sucesso', msg);
             }
         } catch (e: any) {
             console.error('Erro catastrofico:', e);

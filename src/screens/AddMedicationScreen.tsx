@@ -38,15 +38,13 @@ export const AddMedicationScreen = () => {
     const [name, setName] = useState(editMedication?.name || medInfo?.name || '');
     const [dosage, setDosage] = useState(editMedication?.dosage || '');
     const [instructions, setInstructions] = useState(initialDescription);
-    const [reminderTime, setReminderTime] = useState('08:00');
-    const [frequency, setFrequency] = useState('24');
     const [loading, setLoading] = useState(false);
 
     const initialImage = editMedication?.image_url || (medInfo?.image && medInfo.image.startsWith('http') ? medInfo.image : null);
     const [image, setImage] = useState<string | null>(initialImage);
 
     const [brand, setBrand] = useState(editMedication?.brand || medInfo?.brand || '');
-    const [savedMedId, setSavedMedId] = useState<string | null>(null);
+
     const [showImageModal, setShowImageModal] = useState(false);
 
     const [myMedications, setMyMedications] = useState<any[]>([]);
@@ -71,21 +69,23 @@ export const AddMedicationScreen = () => {
     };
 
     const handleSelectExistingMed = (med: any) => {
-        setName(med.name);
-        setDosage(med.dosage || '');
-        setInstructions(med.instructions || '');
-        setShowMedSelector(false);
+        Alert.alert(
+            'Medicamento Selecionado',
+            `Deseja configurar um alarme para ${med.name}?`,
+            [
+                {
+                    text: 'Sim, Configurar Alarme',
+                    onPress: () => {
+                        setShowMedSelector(false);
+                        navigation.navigate('AlarmConfig', { medicationId: med.id, medicationName: med.name });
+                    }
+                },
+                { text: 'Cancelar', style: 'cancel' }
+            ]
+        );
     };
 
-    const handleTimeChange = (text: string) => {
-        let cleaned = text.replace(/[^0-9]/g, '');
-        if (cleaned.length > 4) cleaned = cleaned.slice(0, 4);
-        let formatted = cleaned;
-        if (cleaned.length > 2) {
-            formatted = `${cleaned.slice(0, 2)}:${cleaned.slice(2)}`;
-        }
-        setReminderTime(formatted);
-    };
+
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -124,8 +124,46 @@ export const AddMedicationScreen = () => {
             return;
         }
         setLoading(true);
+
+        // Check duplicate EAN
+        if (initialBarcode && !editMedication) {
+            const { data: existing } = await supabase
+                .from('medications')
+                .select('id, name')
+                .eq('barcode', initialBarcode)
+                .eq('profile_id', session?.user?.id)
+                .maybeSingle();
+
+            if (existing) {
+                setLoading(false);
+                Alert.alert(
+                    'Duplicidade Detectada',
+                    `O medicamento "${existing.name}" já está cadastrado com este código de barras.`,
+                    [
+                        { text: 'Editar o Existente', onPress: () => navigation.replace('AddMedication', { editMedication: existing }) },
+                        { text: 'Cancelar', style: 'cancel' }
+                    ]
+                );
+                return;
+            }
+        }
+
         try {
-            const descriptionToSave = instructions || 'Cadastrado no Vitus';
+            // Se edição, preserva a descrição original (sem mexer em alarme antigo se existir no banco, 
+            // mas aqui não estamos mais concatenando alarme novo).
+            // Como removemos a lógica de alarme daqui, instructions é apenas a descrição.
+
+            // Se o usuário editou instructions, salvamos o novo valor.
+            // Se existia um suffix de alarme antigo e o usuário editou o texto todo, o suffix pode ter sido apagado visualmente?
+            // Na inicialização do state 'instructions', nós removemos o suffix.
+            // Se salvarmos agora, vamos perder o suffix antigo se não o recolocarmos?
+            // O usuário pediu para TIRAR a função de definir alarme.
+            // Mas se eu editar um remédio que TINHA alarme, e salvar sem o suffix, o alarme quebra?
+            // O alarme depende da string instructions? Sim, o parse é feito lá.
+            // Se eu remover o suffix, o 'MedicationDetailScreen' vai mostrar "Sem alarme configurado".
+
+            // Decisão: Manter o suffix ANTIGO se ele existia, para não quebrar alarmes existentes ao editar dados básicos.
+            const finalInstructions = editMedication ? (instructions + alarmSuffix) : instructions;
 
             const medData = {
                 profile_id: session?.user?.id,
@@ -133,34 +171,28 @@ export const AddMedicationScreen = () => {
                 dosage,
                 brand,
                 barcode: initialBarcode,
-                // Se edição, preserva o sufixo de alarme se houver. Se novo, vai só a descrição.
-                instructions: editMedication ? (descriptionToSave + alarmSuffix) : descriptionToSave,
+                instructions: finalInstructions || 'Cadastrado no Vitus',
                 image_url: image,
             };
 
             if (editMedication) {
-                // UPDATE MODE
+                // UPDATE
                 const { error } = await supabase
                     .from('medications')
                     .update(medData)
                     .eq('id', editMedication.id);
 
                 if (error) throw error;
-
                 Alert.alert('Atualizado!', 'Medicamento atualizado com sucesso.');
-                navigation.goBack();
             } else {
-                // INSERT MODE
-                const { data, error } = await supabase.from('medications').insert([medData]).select();
-
+                // INSERT
+                const { error } = await supabase.from('medications').insert([medData]);
                 if (error) throw error;
-
-                if (data && data[0]) {
-                    setSavedMedId(data[0].id);
-                    // Não mostra alert aqui, deixa a UI fluir para configuração de alarme
-                    // Alert.alert('Sucesso!', 'Medicamento salvo! 🌿 Agora configure o alarme?');
-                }
+                Alert.alert('Sucesso!', 'Medicamento cadastrado na sua farmácia.');
             }
+
+            navigation.goBack();
+
         } catch (error: any) {
             Alert.alert('Erro', error.message);
         } finally {
@@ -168,36 +200,7 @@ export const AddMedicationScreen = () => {
         }
     };
 
-    const handleActivateAlarm = async () => {
-        if (!savedMedId) return;
-        setLoading(true);
-        try {
-            const hasPermission = await requestNotificationPermissions();
-            const freqLabel = FREQUENCIES.find(f => f.value === frequency)?.label;
-            const finalInstructions = `${instructions}${instructions ? ' - ' : ''}${freqLabel} das ${reminderTime}`;
 
-            const { error: updateError } = await supabase.from('medications')
-                .update({ instructions: finalInstructions })
-                .eq('id', savedMedId);
-
-            if (updateError) throw updateError;
-
-            if (hasPermission) {
-                await scheduleMedicationReminder(name, reminderTime, savedMedId);
-            }
-
-            Alert.alert('Tudo pronto!', 'Alarme ativado com sucesso! ⏰🌿');
-            navigation.navigate('Main', { screen: 'Farmacia' });
-        } catch (error: any) {
-            Alert.alert('Erro', error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleFinishWithoutAlarm = () => {
-        navigation.navigate('Main', { screen: 'Farmacia' });
-    };
 
     return (
         <>
@@ -209,297 +212,220 @@ export const AddMedicationScreen = () => {
                     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
                         <View style={styles.header}>
                             <TouchableOpacity
-                                onPress={savedMedId ? handleFinishWithoutAlarm : () => navigation.goBack()}
+                                onPress={() => navigation.goBack()}
                                 style={styles.backButton}
                             >
-                                <Ionicons name={savedMedId ? 'close' : 'chevron-back'} size={28} color={theme.colors.primary} />
+                                <Ionicons name="chevron-back" size={28} color={theme.colors.primary} />
                             </TouchableOpacity>
                             <Text style={styles.title}>
-                                {editMedication ? 'Editar Medicamento' : (!savedMedId ? 'Novo Medicamento' : 'Configurar Alarme')}
+                                {editMedication ? 'Editar Medicamento' : 'Novo Medicamento'}
                             </Text>
                             <Text style={styles.subtitle}>
-                                {editMedication ? 'Altere os dados abaixo.' : (!savedMedId ? 'Confirme os dados básicos.' : 'Agora agende seus lembretes.')}
+                                {editMedication ? 'Altere os dados abaixo.' : 'Preencha os dados do medicamento.'}
                             </Text>
                         </View>
 
                         {/* ETAPA 1: DADOS DO MEDICAMENTO */}
-                        {!savedMedId && (
-                            <>
-                                {/* Card de Descoberta (apenas se veio do Scanner) */}
-                                {medInfo && (
-                                    <Card style={styles.discoveryCard}>
-                                        <View style={styles.discoveryImageContainer}>
-                                            {medInfo.image ? (
-                                                <Image
-                                                    source={{ uri: medInfo.image }}
-                                                    style={styles.discoveryImage}
-                                                    onError={() => setImage(null)}
-                                                />
-                                            ) : (
-                                                <View style={styles.discoveryImagePlaceholder}>
-                                                    <Ionicons name="medical" size={40} color={theme.colors.primary} />
-                                                </View>
-                                            )}
-                                            {medInfo.brand && (
-                                                <View style={styles.brandBadge}>
-                                                    <Text style={styles.brandText}>{medInfo.brand}</Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                        <View style={styles.discoveryContent}>
-                                            <Text style={styles.discoveryLabel}>Identificamos para você:</Text>
-                                            <Text style={styles.discoveryName}>{medInfo.name}</Text>
-                                            {!medInfo.image && (
-                                                <View style={styles.noImageHint}>
-                                                    <Ionicons name="camera-outline" size={14} color={theme.colors.accent} />
-                                                    <Text style={styles.noImageHintText}>
-                                                        Sem foto online — adicione uma abaixo ↓
-                                                    </Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                    </Card>
-                                )}
-
-                                {!medInfo && myMedications.length > 0 && (
-                                    <TouchableOpacity
-                                        style={styles.selectorToggle}
-                                        onPress={() => setShowMedSelector(!showMedSelector)}
-                                    >
-                                        <Ionicons name="apps-outline" size={20} color={theme.colors.primary} />
-                                        <Text style={styles.selectorToggleText}>
-                                            {showMedSelector ? 'Ocultar Meus Remédios' : 'Escolher dos meus Medicamentos'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                )}
-
-                                {showMedSelector && (
-                                    <Card style={styles.medPickerCard}>
-                                        <Text style={styles.pickerTitle}>Meus Medicamentos</Text>
-                                        {myMedications.map(med => (
-                                            <TouchableOpacity
-                                                key={med.id}
-                                                style={styles.pickerItem}
-                                                onPress={() => handleSelectExistingMed(med)}
-                                            >
-                                                <Text style={styles.pickerItemText}>{med.name}</Text>
-                                                <Ionicons name="chevron-forward" size={18} color={theme.colors.border} />
-                                            </TouchableOpacity>
-                                        ))}
-                                    </Card>
-                                )}
-
-                                <Card style={styles.mainCard}>
-                                    {/* Nome */}
-                                    <View style={styles.inputGroup}>
-                                        <Text style={styles.label}>Medicamento</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            value={name}
-                                            onChangeText={setName}
-                                            placeholder="Nome do remédio"
-                                        />
-                                    </View>
-
-                                    {/* Laboratório */}
-                                    <View style={styles.inputGroup}>
-                                        <Text style={styles.label}>Laboratório / Marca</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            value={brand}
-                                            onChangeText={setBrand}
-                                            placeholder="Ex: Medley, EMS, Sanofi..."
-                                        />
-                                    </View>
-
-                                    {/* EAN */}
-                                    {initialBarcode ? (
-                                        <View style={styles.inputGroup}>
-                                            <Text style={styles.label}>Código de barras (EAN)</Text>
-                                            <View style={[styles.input, { backgroundColor: '#F0F4F1', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-                                                <Text style={{ fontFamily: theme.fonts.body, color: theme.colors.text }}>{initialBarcode}</Text>
-                                                <Ionicons name="barcode-outline" size={20} color={theme.colors.primary} />
-                                            </View>
-                                        </View>
-                                    ) : null}
-
-                                    {/* Dosagem */}
-                                    <View style={styles.inputGroup}>
-                                        <Text style={styles.label}>Dosagem</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            value={dosage}
-                                            onChangeText={setDosage}
-                                            placeholder="Ex: 1 comprimido, 50mg..."
-                                        />
-                                    </View>
-
-                                    {/* Resumo / Indicação */}
-                                    <View style={styles.inputGroup}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                                            <Text style={[styles.label, { marginBottom: 0 }]}>Resumo / Indicação</Text>
-                                            {instructions ? (
-                                                <View style={styles.autoBadge}>
-                                                    <Ionicons name="sparkles" size={10} color={theme.colors.primary} />
-                                                    <Text style={styles.autoText}>Auto</Text>
-                                                </View>
-                                            ) : null}
-                                        </View>
-                                        <TextInput
-                                            style={[styles.input, styles.textArea]}
-                                            value={instructions}
-                                            onChangeText={setInstructions}
-                                            placeholder="Para que serve este remédio? Ex: Analgésico e antitérmico, usado para dores e febre..."
-                                            multiline
-                                            numberOfLines={3}
-                                            textAlignVertical="top"
-                                        />
-                                    </View>
-
-                                    {/* Foto */}
-                                    <View style={styles.inputGroup}>
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                            <Text style={[styles.label, { marginBottom: 0 }]}>Foto do Medicamento</Text>
-                                            {!image && (
-                                                <View style={styles.warningBadge}>
-                                                    <Text style={styles.warningText}>Recomendado</Text>
-                                                </View>
-                                            )}
-                                        </View>
-
-                                        {image ? (
-                                            <View>
-                                                <View style={styles.imagePreviewContainer}>
-                                                    <Image
-                                                        source={{ uri: image }}
-                                                        style={styles.imagePreview}
-                                                        onError={() => setImage(null)}
-                                                    />
-                                                </View>
-                                                <View style={styles.photoActionBar}>
-                                                    <TouchableOpacity
-                                                        style={styles.photoActionBtn}
-                                                        onPress={() => setShowImageModal(true)}
-                                                    >
-                                                        <Ionicons name="expand-outline" size={18} color={theme.colors.primary} />
-                                                        <Text style={styles.photoActionText}>Ampliar</Text>
-                                                    </TouchableOpacity>
-                                                    <View style={styles.photoActionDivider} />
-                                                    <TouchableOpacity
-                                                        style={styles.photoActionBtn}
-                                                        onPress={takePhoto}
-                                                    >
-                                                        <Ionicons name="camera-outline" size={18} color={theme.colors.primary} />
-                                                        <Text style={styles.photoActionText}>Substituir</Text>
-                                                    </TouchableOpacity>
-                                                    <View style={styles.photoActionDivider} />
-                                                    <TouchableOpacity
-                                                        style={styles.photoActionBtn}
-                                                        onPress={() => setImage(null)}
-                                                    >
-                                                        <Ionicons name="trash-outline" size={18} color={theme.colors.alert} />
-                                                        <Text style={[styles.photoActionText, { color: theme.colors.alert }]}>Apagar</Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
+                        {/* FORMULÁRIO */}
+                        <>
+                            {/* Card de Descoberta (apenas se veio do Scanner) */}
+                            {medInfo && (
+                                <Card style={styles.discoveryCard}>
+                                    <View style={styles.discoveryImageContainer}>
+                                        {medInfo.image ? (
+                                            <Image
+                                                source={{ uri: medInfo.image }}
+                                                style={styles.discoveryImage}
+                                                onError={() => setImage(null)}
+                                            />
                                         ) : (
-                                            <View style={styles.photoActions}>
-                                                <TouchableOpacity style={[styles.photoBtn, { backgroundColor: theme.colors.primary, flex: 2 }]} onPress={takePhoto}>
-                                                    <Ionicons name="camera" size={24} color="#FFF" />
-                                                    <Text style={[styles.photoBtnText, { color: '#FFF' }]}>Tirar Foto</Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
-                                                    <Ionicons name="image" size={24} color={theme.colors.primary} />
-                                                    <Text style={styles.photoBtnText}>Galeria</Text>
-                                                </TouchableOpacity>
+                                            <View style={styles.discoveryImagePlaceholder}>
+                                                <Ionicons name="medical" size={40} color={theme.colors.primary} />
+                                            </View>
+                                        )}
+                                        {medInfo.brand && (
+                                            <View style={styles.brandBadge}>
+                                                <Text style={styles.brandText}>{medInfo.brand}</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <View style={styles.discoveryContent}>
+                                        <Text style={styles.discoveryLabel}>Identificamos para você:</Text>
+                                        <Text style={styles.discoveryName}>{medInfo.name}</Text>
+                                        {!medInfo.image && (
+                                            <View style={styles.noImageHint}>
+                                                <Ionicons name="camera-outline" size={14} color={theme.colors.accent} />
+                                                <Text style={styles.noImageHintText}>
+                                                    Sem foto online — adicione uma abaixo ↓
+                                                </Text>
                                             </View>
                                         )}
                                     </View>
                                 </Card>
+                            )}
 
-                                <Button
-                                    title={editMedication ? "Salvar Alterações" : "Próximo: Definir Alarme ->"}
-                                    onPress={handleSaveMedication}
-                                    loading={loading}
-                                />
-                            </>
-                        )}
-
-                        {/* ETAPA 2: CONFIGURAÇÃO DE ALARME */}
-                        {savedMedId && (
-                            <>
-                                <Card style={styles.mainCard}>
-                                    <View style={styles.successBadge}>
-                                        <Ionicons name="checkmark-circle" size={48} color={theme.colors.primary} />
-                                        <Text style={styles.successTitle}>Medicamento Salvo!</Text>
-                                        <Text style={styles.successText}>{name} está na sua farmácia.</Text>
-                                    </View>
-
-                                    <View style={styles.row}>
-                                        <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-                                            <Text style={styles.label}>Horário Inicial</Text>
-                                            <TextInput
-                                                style={styles.input}
-                                                value={reminderTime}
-                                                onChangeText={handleTimeChange}
-                                                placeholder="08:00"
-                                                keyboardType="number-pad"
-                                                maxLength={5}
-                                            />
-                                        </View>
-                                        <View style={{ justifyContent: 'center', paddingTop: 20 }}>
-                                            <Ionicons name="time" size={32} color={theme.colors.primary} />
-                                        </View>
-                                    </View>
-
-                                    <View style={styles.inputGroup}>
-                                        <Text style={styles.label}>Frequência</Text>
-                                        <View style={styles.freqContainer}>
-                                            {FREQUENCIES.map((f) => (
-                                                <TouchableOpacity
-                                                    key={f.value}
-                                                    onPress={() => setFrequency(f.value)}
-                                                    style={[
-                                                        styles.freqChip,
-                                                        frequency === f.value && styles.freqChipActive
-                                                    ]}
-                                                >
-                                                    <Text style={[
-                                                        styles.freqChipText,
-                                                        frequency === f.value && styles.freqChipTextActive
-                                                    ]}>
-                                                        {f.label}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                    </View>
-
-                                    {medInfo?.bulaUrl && (
-                                        <TouchableOpacity
-                                            style={styles.bulaLink}
-                                            onPress={() => Linking.openURL(medInfo.bulaUrl)}
-                                        >
-                                            <Ionicons name="document-text" size={20} color={theme.colors.primary} />
-                                            <Text style={styles.bulaText}>Ver Bula Digital</Text>
-                                        </TouchableOpacity>
-                                    )}
-                                </Card>
-
-                                <Button
-                                    title={loading ? 'Ativando...' : 'Ativar Alarme'}
-                                    onPress={handleActivateAlarm}
-                                    style={styles.saveButton}
-                                />
-
+                            {!medInfo && myMedications.length > 0 && (
                                 <TouchableOpacity
-                                    style={styles.skipButton}
-                                    onPress={handleFinishWithoutAlarm}
+                                    style={styles.selectorToggle}
+                                    onPress={() => setShowMedSelector(!showMedSelector)}
                                 >
-                                    <Text style={styles.skipButtonText}>Finalizar sem Alarme</Text>
+                                    <Ionicons name="apps-outline" size={20} color={theme.colors.primary} />
+                                    <Text style={styles.selectorToggleText}>
+                                        {showMedSelector ? 'Ocultar Meus Remédios' : 'Escolher dos meus Medicamentos'}
+                                    </Text>
                                 </TouchableOpacity>
-                            </>
-                        )}
+                            )}
+
+                            {showMedSelector && (
+                                <Card style={styles.medPickerCard}>
+                                    <Text style={styles.pickerTitle}>Meus Medicamentos</Text>
+                                    {myMedications.map(med => (
+                                        <TouchableOpacity
+                                            key={med.id}
+                                            style={styles.pickerItem}
+                                            onPress={() => handleSelectExistingMed(med)}
+                                        >
+                                            <Text style={styles.pickerItemText}>{med.name}</Text>
+                                            <Ionicons name="chevron-forward" size={18} color={theme.colors.border} />
+                                        </TouchableOpacity>
+                                    ))}
+                                </Card>
+                            )}
+
+                            <Card style={styles.mainCard}>
+                                {/* Nome */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Medicamento</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={name}
+                                        onChangeText={setName}
+                                        placeholder="Nome do remédio"
+                                    />
+                                </View>
+
+                                {/* Laboratório */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Laboratório / Marca</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={brand}
+                                        onChangeText={setBrand}
+                                        placeholder="Ex: Medley, EMS, Sanofi..."
+                                    />
+                                </View>
+
+                                {/* EAN */}
+                                {initialBarcode ? (
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Código de barras (EAN)</Text>
+                                        <View style={[styles.input, { backgroundColor: '#F0F4F1', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                                            <Text style={{ fontFamily: theme.fonts.body, color: theme.colors.text }}>{initialBarcode}</Text>
+                                            <Ionicons name="barcode-outline" size={20} color={theme.colors.primary} />
+                                        </View>
+                                    </View>
+                                ) : null}
+
+                                {/* Dosagem */}
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Dosagem</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={dosage}
+                                        onChangeText={setDosage}
+                                        placeholder="Ex: 1 comprimido, 50mg..."
+                                    />
+                                </View>
+
+                                {/* Resumo / Indicação */}
+                                <View style={styles.inputGroup}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                        <Text style={[styles.label, { marginBottom: 0 }]}>Resumo / Indicação</Text>
+                                        {instructions ? (
+                                            <View style={styles.autoBadge}>
+                                                <Ionicons name="sparkles" size={10} color={theme.colors.primary} />
+                                                <Text style={styles.autoText}>Auto</Text>
+                                            </View>
+                                        ) : null}
+                                    </View>
+                                    <TextInput
+                                        style={[styles.input, styles.textArea]}
+                                        value={instructions}
+                                        onChangeText={setInstructions}
+                                        placeholder="Para que serve este remédio? Ex: Analgésico e antitérmico, usado para dores e febre..."
+                                        multiline
+                                        numberOfLines={3}
+                                        textAlignVertical="top"
+                                    />
+                                </View>
+
+                                {/* Foto */}
+                                <View style={styles.inputGroup}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <Text style={[styles.label, { marginBottom: 0 }]}>Foto do Medicamento</Text>
+                                        {!image && (
+                                            <View style={styles.warningBadge}>
+                                                <Text style={styles.warningText}>Recomendado</Text>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {image ? (
+                                        <View>
+                                            <View style={styles.imagePreviewContainer}>
+                                                <Image
+                                                    source={{ uri: image }}
+                                                    style={styles.imagePreview}
+                                                    onError={() => setImage(null)}
+                                                />
+                                            </View>
+                                            <View style={styles.photoActionBar}>
+                                                <TouchableOpacity
+                                                    style={styles.photoActionBtn}
+                                                    onPress={() => setShowImageModal(true)}
+                                                >
+                                                    <Ionicons name="expand-outline" size={18} color={theme.colors.primary} />
+                                                    <Text style={styles.photoActionText}>Ampliar</Text>
+                                                </TouchableOpacity>
+                                                <View style={styles.photoActionDivider} />
+                                                <TouchableOpacity
+                                                    style={styles.photoActionBtn}
+                                                    onPress={takePhoto}
+                                                >
+                                                    <Ionicons name="camera-outline" size={18} color={theme.colors.primary} />
+                                                    <Text style={styles.photoActionText}>Substituir</Text>
+                                                </TouchableOpacity>
+                                                <View style={styles.photoActionDivider} />
+                                                <TouchableOpacity
+                                                    style={styles.photoActionBtn}
+                                                    onPress={() => setImage(null)}
+                                                >
+                                                    <Ionicons name="trash-outline" size={18} color={theme.colors.alert} />
+                                                    <Text style={[styles.photoActionText, { color: theme.colors.alert }]}>Apagar</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    ) : (
+                                        <View style={styles.photoActions}>
+                                            <TouchableOpacity style={[styles.photoBtn, { backgroundColor: theme.colors.primary, flex: 2 }]} onPress={takePhoto}>
+                                                <Ionicons name="camera" size={24} color="#FFF" />
+                                                <Text style={[styles.photoBtnText, { color: '#FFF' }]}>Tirar Foto</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
+                                                <Ionicons name="image" size={24} color={theme.colors.primary} />
+                                                <Text style={styles.photoBtnText}>Galeria</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+                            </Card>
+
+                            <Button
+                                title={editMedication ? "Salvar Alterações" : "Salvar Medicamento"}
+                                onPress={handleSaveMedication}
+                                loading={loading}
+                            />
+                        </>
                     </ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
