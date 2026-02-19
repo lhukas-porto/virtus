@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, Platform, Image, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, Platform, Image, TextInput, ActivityIndicator, Linking } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { theme } from '../theme/theme';
@@ -161,6 +161,36 @@ export const ProfileScreen = () => {
         }
     };
 
+    const handleSupport = () => {
+        Alert.alert(
+            "Ajuda e Suporte",
+            "Como você gostaria de falar conosco?",
+            [
+                {
+                    text: "Enviar E-mail",
+                    onPress: () => {
+                        Linking.openURL('mailto:lucas@infodesk.net.br?subject=Suporte do App Vitus');
+                    }
+                },
+                {
+                    text: "WhatsApp",
+                    onPress: () => {
+                        const phone = "5561996272630";
+                        const msg = "Estou precisando de suporte";
+                        const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+                        Linking.openURL(url).catch((err) => {
+                            Alert.alert("Erro", "Não foi possível abrir o WhatsApp.");
+                        });
+                    }
+                },
+                {
+                    text: "Cancelar",
+                    style: "cancel"
+                }
+            ]
+        );
+    };
+
     const handleLogout = async () => {
         if (Platform.OS === 'web') {
             const confirmed = window.confirm("Deseja realmente sair da sua conta?");
@@ -292,7 +322,7 @@ export const ProfileScreen = () => {
                                 <Ionicons name="chevron-forward" size={20} color={theme.colors.border} />
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.menuItem}>
+                            <TouchableOpacity style={styles.menuItem} onPress={handleSupport}>
                                 <View style={styles.menuIcon}>
                                     <Ionicons name="help-circle-outline" size={24} color={theme.colors.text} />
                                 </View>
