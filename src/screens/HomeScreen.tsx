@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Image, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
 import { theme } from '../theme/theme';
@@ -8,11 +8,12 @@ import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 
 export const HomeScreen = () => {
     const { session, profile } = useAuth();
     const navigation = useNavigation<any>();
+    const route = useRoute<any>();
     const [agendaItems, setAgendaItems] = React.useState<any[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [hiddenItems, setHiddenItems] = React.useState<string[]>([]);
@@ -61,7 +62,7 @@ export const HomeScreen = () => {
             reminders?.forEach((rem: any) => {
                 if (!rem.medications) return;
 
-                const [h, m] = rem.reminder_time.split(':').map(Number);
+                const [h, m] = rem.reminder_time.slice(0, 5).split(':').map(Number);
 
                 let time = new Date();
                 time.setHours(h, m, 0, 0);
@@ -100,7 +101,8 @@ export const HomeScreen = () => {
                             medication: rem.medications,
                             time: slotTime,
                             log: finalLog,
-                            status: finalLog ? finalLog.status : 'pending'
+                            status: finalLog ? finalLog.status : 'pending',
+                            original: rem
                         });
                     }
                     current = new Date(current.getTime() + rem.frequency_hours * 60 * 60 * 1000);
@@ -153,8 +155,20 @@ export const HomeScreen = () => {
     useFocusEffect(
         React.useCallback(() => {
             fetchAgenda();
-        }, [session])
+        }, [session, route?.params?.refreshTimestamp])
     );
+
+    React.useEffect(() => {
+        const sub = DeviceEventEmitter.addListener('event.refreshAgenda', fetchAgenda);
+        return () => sub.remove();
+    }, []);
+
+    React.useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('event.medicationTaken', () => {
+            fetchAgenda();
+        });
+        return () => subscription.remove();
+    }, []);
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -162,7 +176,7 @@ export const HomeScreen = () => {
                 <View style={styles.header}>
                     <View>
                         <Text style={styles.greeting}>Olá,</Text>
-                        <Text style={styles.userName}>{userName}! 🌿</Text>
+                        <Text style={styles.userName}>{userName}!</Text>
                     </View>
                     <TouchableOpacity style={styles.profileChip} onPress={() => navigation.navigate('Profile')}>
                         {session?.user?.user_metadata?.avatar_url ? (
@@ -179,7 +193,15 @@ export const HomeScreen = () => {
                 {/* Daily Agenda Section */}
                 <View style={[styles.section, { flex: 1 }]}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Agenda de Hoje 📅</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={styles.sectionTitle}>Agenda de Hoje</Text>
+                            <View style={styles.calendarIconWrapper}>
+                                <View style={styles.calendarIconTop} />
+                                <View style={styles.calendarIconBody}>
+                                    <Text style={styles.calendarIconText}>{new Date().getDate()}</Text>
+                                </View>
+                            </View>
+                        </View>
                         <TouchableOpacity onPress={fetchAgenda}>
                             <Ionicons name="refresh" size={20} color={theme.colors.primary} />
                         </TouchableOpacity>
@@ -189,6 +211,7 @@ export const HomeScreen = () => {
                         agendaItems.map((item) => {
                             if (hiddenItems.includes(item.id)) return null;
                             const isTaken = item.status === 'taken';
+                            const displayTime = isTaken && item.log ? new Date(item.log.taken_at) : item.time;
 
                             return (
                                 <Swipeable
@@ -212,7 +235,7 @@ export const HomeScreen = () => {
                                         <View style={styles.agendaInfo}>
                                             <View style={[styles.timeBox, isTaken && styles.timeBoxTaken]}>
                                                 <Text style={[styles.timeText, isTaken && { color: '#FFF' }]}>
-                                                    {item.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </Text>
                                             </View>
 
@@ -237,12 +260,26 @@ export const HomeScreen = () => {
                                                 </TouchableOpacity>
 
                                                 {!isTaken && (
-                                                    <TouchableOpacity
-                                                        style={styles.optionBtn}
-                                                        onPress={() => handleDeleteReminder(item.reminderId)}
-                                                    >
-                                                        <Ionicons name="trash-outline" size={20} color={theme.colors.alert} />
-                                                    </TouchableOpacity>
+                                                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                                                        <TouchableOpacity
+                                                            style={styles.optionBtn}
+                                                            onPress={() => navigation.navigate('AlarmConfig', {
+                                                                reminder: item.original,
+                                                                medicationId: item.medication.id,
+                                                                medicationName: item.medication.name,
+                                                                slotTime: item.time.toISOString()
+                                                            })}
+                                                        >
+                                                            <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
+                                                        </TouchableOpacity>
+
+                                                        <TouchableOpacity
+                                                            style={styles.optionBtn}
+                                                            onPress={() => handleDeleteReminder(item.reminderId)}
+                                                        >
+                                                            <Ionicons name="trash-outline" size={20} color={theme.colors.alert} />
+                                                        </TouchableOpacity>
+                                                    </View>
                                                 )}
                                             </View>
                                         </View>
@@ -422,5 +459,32 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontSize: 12,
         fontFamily: theme.fonts.bold,
+    },
+    calendarIconWrapper: {
+        width: 28,
+        height: 32,
+        backgroundColor: '#FFF',
+        borderRadius: 6,
+        marginLeft: 10,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        elevation: 2,
+    },
+    calendarIconTop: {
+        height: 10,
+        backgroundColor: theme.colors.primary,
+    },
+    calendarIconBody: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FFF'
+    },
+    calendarIconText: {
+        fontSize: 14,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+        marginTop: -2
     }
 });

@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, ActivityIndicator, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabase';
 import { theme } from '../theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/Button';
-import { scheduleMedicationReminder } from '../services/notifications';
+import { scheduleMedicationReminder, syncNotifications } from '../services/notifications';
 
 const FREQUENCIES = [
     { label: 'Diário (24h)', value: 24, icon: 'sunny-outline' },
@@ -19,15 +19,26 @@ const FREQUENCIES = [
 export const AlarmConfigScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const { medicationId, medicationName } = route.params;
+    const { medicationId, medicationName, reminder, slotTime } = route.params;
+    const isEditing = !!reminder;
 
     const [loading, setLoading] = useState(false);
-    const [selectedFreq, setSelectedFreq] = useState(24);
+    const [selectedFreq, setSelectedFreq] = useState(reminder?.frequency_hours || 24);
 
-    // Initialize with current time
-    const now = new Date();
-    const initialTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const [startTime, setStartTime] = useState(initialTime);
+    // Initialize with slotTime (if editing specific instance), reminder time, or current time
+    const getInitialTime = () => {
+        if (slotTime) {
+            const d = new Date(slotTime);
+            return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        }
+        if (reminder) {
+            return reminder.reminder_time.slice(0, 5);
+        }
+        const now = new Date();
+        return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    };
+
+    const [startTime, setStartTime] = useState(getInitialTime());
 
     // Calcular horários previstos
     const projectedTimes = useMemo(() => {
@@ -59,45 +70,50 @@ export const AlarmConfigScreen = () => {
         setStartTime(formatted);
     };
 
-    const handleSaveAlarm = async () => {
-        if (!startTime || startTime.length < 5) {
-            Alert.alert('Ops', 'Informe um horário válido (HH:MM).');
-            return;
-        }
-
+    const performSave = async () => {
         setLoading(true);
         try {
-            // 1. Salvar no Supabase
-            const { data, error } = await supabase
-                .from('medication_reminders')
-                .insert([{
-                    medication_id: medicationId,
-                    reminder_time: startTime + ':00',
-                    frequency_hours: selectedFreq
-                }])
-                .select()
-                .single();
+            if (isEditing) {
+                // UPDATE
+                const { data, error } = await supabase
+                    .from('medication_reminders')
+                    .update({
+                        reminder_time: startTime + ':00',
+                        frequency_hours: selectedFreq
+                    })
+                    .eq('id', reminder.reminderId || reminder.id)
+                    .select();
 
-            if (error) throw error;
+                if (error) throw error;
 
-            // 2. Agendar notificações locais
-            // Para cada horário calculado, agendar.
-            // O serviço 'scheduleMedicationReminder' atualmente suporta apenas 1 horário diário.
-            // Precisamos iterar.
+                if (!data || data.length === 0) {
+                    Alert.alert('Erro', 'Registro original não encontrado. A atualização falhou.');
+                    return;
+                }
+            } else {
+                // INSERT
+                const { error } = await supabase
+                    .from('medication_reminders')
+                    .insert([{
+                        medication_id: medicationId,
+                        reminder_time: startTime + ':00',
+                        frequency_hours: selectedFreq
+                    }]);
 
-            const promises = projectedTimes.map(time => {
-                return scheduleMedicationReminder(medicationName, time, data.id, medicationId);
-            });
+                if (error) throw error;
+            }
 
-            await Promise.all(promises);
+            // Sync all notifications (safe approach)
+            await syncNotifications();
 
-            Alert.alert('Sucesso', 'Alarmes configurados!', [
+            Alert.alert('Sucesso', 'Alarme salvo!', [
                 {
                     text: 'OK',
                     onPress: () => {
+                        DeviceEventEmitter.emit('event.refreshAgenda');
                         navigation.reset({
                             index: 0,
-                            routes: [{ name: 'Main' }],
+                            routes: [{ name: 'Main', params: { refreshTimestamp: Date.now() } }],
                         });
                     }
                 }
@@ -108,6 +124,33 @@ export const AlarmConfigScreen = () => {
             Alert.alert('Erro', 'Falha ao salvar alarme.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSaveAlarm = async () => {
+        if (!startTime || startTime.length < 5) {
+            Alert.alert('Ops', 'Informe um horário válido (HH:MM).');
+            return;
+        }
+
+        if (isEditing) {
+            Alert.alert(
+                'Editar Alarme',
+                'Esta alteração deve ser aplicada para:',
+                [
+                    {
+                        text: 'Apenas hoje',
+                        onPress: () => Alert.alert('Aviso', 'Edição de ocorrência única em desenvolvimento. Por favor, use "Todos os futuros" para alterar o horário padrão.')
+                    },
+                    {
+                        text: 'Todos os futuros',
+                        onPress: performSave
+                    },
+                    { text: 'Cancelar', style: 'cancel' }
+                ]
+            );
+        } else {
+            performSave();
         }
     };
 

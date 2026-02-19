@@ -275,7 +275,7 @@ export const ProfileScreen = () => {
                             style={styles.logoutButton}
                         />
 
-                        <Text style={styles.versionText}>Vitus v1.0.1 🌿</Text>
+                        <Text style={styles.versionText}>Vitus v1.0.1</Text>
                     </>
                 )}
             </ScrollView>

@@ -4,11 +4,11 @@ import { Platform } from 'react-native';
 // Configure how notifications are handled when the app is open
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowAlert: true,
+        shouldShowAlert: false,
         shouldPlaySound: true,
         shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
+        shouldShowBanner: false,
+        shouldShowList: false,
     }),
 });
 
@@ -105,4 +105,50 @@ export const scheduleSnooze = async (medName: string, minutes: number, data: any
 
 export const cancelNotification = async (id: string) => {
     await Notifications.cancelScheduledNotificationAsync(id);
+};
+
+export const syncNotifications = async () => {
+    try {
+        // 1. Limpar tudo
+        await Notifications.cancelAllScheduledNotificationsAsync();
+
+        // 2. Buscar do banco (precisa do supabase importado, mas vamos injetar ou importar aqui)
+        // Como este arquivo é helper, vou importar supabase aqui.
+        const { supabase } = require('./supabase');
+
+        const { data: reminders, error } = await supabase
+            .from('medication_reminders')
+            .select(`
+                id,
+                reminder_time,
+                frequency_hours,
+                medication_id,
+                medications ( name )
+            `);
+
+        if (error || !reminders) return;
+
+        // 3. Reagendar
+        for (const rem of reminders) {
+            const medName = rem.medications?.name || 'Medicamento';
+            const freq = rem.frequency_hours || 24;
+            const [hBase, mBase] = rem.reminder_time.split(':').map(Number);
+
+            if (isNaN(hBase)) continue;
+
+            const cycles = Math.floor(24 / freq);
+
+            for (let i = 0; i < cycles; i++) {
+                const h = (hBase + (i * freq)) % 24;
+                const timeStr = `${String(h).padStart(2, '0')}:${String(mBase).padStart(2, '0')}`;
+
+                // Reutiliza a função schedule
+                await scheduleMedicationReminder(medName, timeStr, rem.id, rem.medication_id);
+            }
+        }
+        console.log(`Synced ${reminders.length} reminders.`);
+
+    } catch (e) {
+        console.error("Sync failed", e);
+    }
 };

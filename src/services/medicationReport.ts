@@ -4,41 +4,41 @@ import { supabase } from './supabase';
 import { theme } from '../theme/theme';
 
 export const generateMedicationPDF = async (
-    userName: string,
-    periodStart: Date,
-    periodEnd: Date
+  userName: string,
+  periodStart: Date,
+  periodEnd: Date
 ) => {
-    // 1. Fetch Data
-    // Ajustar datas para cobrir o dia inteiro
-    const start = new Date(periodStart);
-    start.setHours(0, 0, 0, 0);
+  // 1. Fetch Data
+  // Ajustar datas para cobrir o dia inteiro
+  const start = new Date(periodStart);
+  start.setHours(0, 0, 0, 0);
 
-    const end = new Date(periodEnd);
-    end.setHours(23, 59, 59, 999);
+  const end = new Date(periodEnd);
+  end.setHours(23, 59, 59, 999);
 
-    const { data: logs, error } = await supabase
-        .from('medication_logs')
-        .select(`
+  const { data: logs, error } = await supabase
+    .from('medication_logs')
+    .select(`
             *,
             medications (name, dosage, brand)
         `)
-        .gte('taken_at', start.toISOString())
-        .lte('taken_at', end.toISOString())
-        .order('taken_at', { ascending: true });
+    .gte('taken_at', start.toISOString())
+    .lte('taken_at', end.toISOString())
+    .order('taken_at', { ascending: true });
 
-    if (error) throw error;
+  if (error) throw error;
 
-    if (!logs || logs.length === 0) {
-        throw new Error("Nenhum registro encontrado neste período.");
-    }
+  if (!logs || logs.length === 0) {
+    throw new Error("Nenhum registro encontrado neste período.");
+  }
 
-    // 2. Statistics
-    const totalEntries = logs.length;
-    // Falta saber total agendado para calcular % de adesão real, mas requer query complexa de reminders
-    // Por enquanto, relatório de "O que foi tomado".
+  // 2. Statistics
+  const totalEntries = logs.length;
+  // Falta saber total agendado para calcular % de adesão real, mas requer query complexa de reminders
+  // Por enquanto, relatório de "O que foi tomado".
 
-    // 3. Generate HTML
-    const html = `
+  // 3. Generate HTML
+  const html = `
     <html>
       <head>
         <meta charset="utf-8">
@@ -58,7 +58,7 @@ export const generateMedicationPDF = async (
       </head>
       <body>
         <div class="header">
-            <div class="logo">Vitus 🌿</div>
+            <div class="logo">Vitus</div>
             <div style="text-align: right;">Relatório de Medicamentos</div>
         </div>
 
@@ -86,13 +86,13 @@ export const generateMedicationPDF = async (
           </thead>
           <tbody>
           ${logs.map(log => {
-        const dateObj = new Date(log.taken_at);
-        // Ajustar fuso horário visualmente se necessário, mas toLocaleString deve lidar com locale do device se o engine JS permitir
-        // Print usa webview headless, fuso pode ser UTC.
-        // Melhor formatar manualmente ou garantir timezone.
-        // toLocaleString('pt-BR') costuma funcionar.
+    const dateObj = new Date(log.taken_at);
+    // Ajustar fuso horário visualmente se necessário, mas toLocaleString deve lidar com locale do device se o engine JS permitir
+    // Print usa webview headless, fuso pode ser UTC.
+    // Melhor formatar manualmente ou garantir timezone.
+    // toLocaleString('pt-BR') costuma funcionar.
 
-        return `
+    return `
             <tr>
               <td>${dateObj.toLocaleDateString('pt-BR')}</td>
               <td>${dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
@@ -111,9 +111,9 @@ export const generateMedicationPDF = async (
     </html>
     `;
 
-    // 4. Print to File
-    const { uri } = await Print.printToFileAsync({ html });
+  // 4. Print to File
+  const { uri } = await Print.printToFileAsync({ html });
 
-    // 5. Share
-    await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+  // 5. Share
+  await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
 };

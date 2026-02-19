@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Vibration, Dimensions, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Vibration, Dimensions, Alert, Image, DeviceEventEmitter } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
@@ -82,6 +82,7 @@ export const AlarmOverlay = () => {
                     Alert.alert("Erro", "Não foi possível salvar o registro online.");
                 } else {
                     // Success
+                    DeviceEventEmitter.emit('event.medicationTaken');
                 }
             }
         } catch (error) {
