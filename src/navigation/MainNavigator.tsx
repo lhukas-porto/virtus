@@ -10,6 +10,9 @@ import { HealthLogScreen } from '../screens/HealthLogScreen';
 import { MedicationListScreen } from '../screens/MedicationListScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 
+// Height of the tab bar (used for paddingBottom on web)
+const TAB_BAR_HEIGHT = 65;
+
 export const MainNavigator = () => {
     const { width } = useWindowDimensions();
     const [activeTab, setActiveTab] = useState(0);
@@ -39,12 +42,26 @@ export const MainNavigator = () => {
     const ActiveComponent = tabs[activeTab].component;
 
     return (
-        <View style={[styles.container, Platform.OS === 'web' && { height: '100vh' as any }]}>
-            <View style={styles.content}>
+        <View style={styles.container}>
+            {/* Content area — on web, pad the bottom so content isn't hidden under the fixed tab bar */}
+            <View style={[
+                styles.content,
+                Platform.OS === 'web' && { paddingBottom: TAB_BAR_HEIGHT }
+            ]}>
                 <ActiveComponent />
             </View>
 
-            <View style={styles.footer}>
+            {/* Footer — on web use position:fixed so it's always anchored to the bottom */}
+            <View style={[
+                styles.footer,
+                Platform.OS === 'web' && {
+                    position: 'fixed' as any,
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 999,
+                }
+            ]}>
                 <SafeAreaView edges={['bottom']}>
                     <View style={styles.tabBar}>
                         <Animated.View
@@ -94,7 +111,6 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        // No overflow hidden here to allow ScrollViews inside components to work correctly
     },
     footer: {
         backgroundColor: theme.colors.surface,
@@ -108,7 +124,7 @@ const styles = StyleSheet.create({
     },
     tabBar: {
         flexDirection: 'row',
-        height: 65,
+        height: TAB_BAR_HEIGHT,
         position: 'relative',
     },
     tabItem: {
