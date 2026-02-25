@@ -237,7 +237,7 @@ export const ProfileScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.header}>
                     <Text style={styles.title}>Meu Perfil</Text>
@@ -336,7 +336,7 @@ export const ProfileScreen = () => {
                     </>
                 )}
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -347,6 +347,7 @@ const styles = StyleSheet.create({
     },
     container: {
         padding: 24,
+        paddingBottom: Platform.OS === 'web' ? 120 : 40,
     },
     header: {
         marginBottom: 32,

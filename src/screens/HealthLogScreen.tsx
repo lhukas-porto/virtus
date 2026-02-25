@@ -106,7 +106,7 @@ export const HealthLogScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.safeArea}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
@@ -227,7 +227,7 @@ export const HealthLogScreen = () => {
                     </Text>
                 </ScrollView>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -238,6 +238,7 @@ const styles = StyleSheet.create({
     },
     container: {
         padding: 24,
+        paddingBottom: Platform.OS === 'web' ? 120 : 40,
     },
     header: {
         marginBottom: 32,

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, DeviceEventEmitter, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, DeviceEventEmitter, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../theme/theme';
 import { Card } from '../components/Card';
@@ -401,6 +401,7 @@ const styles = StyleSheet.create({
     container: {
         padding: 24,
         paddingTop: 20,
+        paddingBottom: Platform.OS === 'web' ? 120 : 40,
     },
     header: {
         flexDirection: 'row',

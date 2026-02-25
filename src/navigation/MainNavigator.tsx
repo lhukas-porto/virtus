@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
@@ -39,48 +39,50 @@ export const MainNavigator = () => {
     const ActiveComponent = tabs[activeTab].component;
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, Platform.OS === 'web' && { height: '100vh' as any }]}>
             <View style={styles.content}>
                 <ActiveComponent />
             </View>
 
-            <SafeAreaView style={styles.footer} edges={['bottom']}>
-                <View style={styles.tabBar}>
-                    <Animated.View
-                        style={[
-                            styles.indicator,
-                            {
-                                width: width / 4,
-                                transform: [{ translateX: indicatorAnim }]
-                            }
-                        ]}
-                    />
+            <View style={styles.footer}>
+                <SafeAreaView edges={['bottom']}>
+                    <View style={styles.tabBar}>
+                        <Animated.View
+                            style={[
+                                styles.indicator,
+                                {
+                                    width: width / 4,
+                                    transform: [{ translateX: indicatorAnim }]
+                                }
+                            ]}
+                        />
 
-                    {tabs.map((tab, index) => {
-                        const isActive = activeTab === index;
-                        return (
-                            <TouchableOpacity
-                                key={tab.id}
-                                style={styles.tabItem}
-                                onPress={() => handleTabPress(index)}
-                                activeOpacity={0.7}
-                            >
-                                <Ionicons
-                                    name={(isActive ? tab.icon : `${tab.icon}-outline`) as any}
-                                    size={24}
-                                    color={isActive ? theme.colors.primary : '#9CA3AF'}
-                                />
-                                <Text style={[
-                                    styles.tabLabel,
-                                    isActive && styles.tabLabelActive
-                                ]}>
-                                    {tab.label}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-            </SafeAreaView>
+                        {tabs.map((tab, index) => {
+                            const isActive = activeTab === index;
+                            return (
+                                <TouchableOpacity
+                                    key={tab.id}
+                                    style={styles.tabItem}
+                                    onPress={() => handleTabPress(index)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons
+                                        name={(isActive ? tab.icon : `${tab.icon}-outline`) as any}
+                                        size={24}
+                                        color={isActive ? theme.colors.primary : '#9CA3AF'}
+                                    />
+                                    <Text style={[
+                                        styles.tabLabel,
+                                        isActive && styles.tabLabelActive
+                                    ]}>
+                                        {tab.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </SafeAreaView>
+            </View>
         </View>
     );
 };
@@ -92,6 +94,7 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
+        // No overflow hidden here to allow ScrollViews inside components to work correctly
     },
     footer: {
         backgroundColor: theme.colors.surface,
@@ -125,7 +128,7 @@ const styles = StyleSheet.create({
     },
     indicator: {
         position: 'absolute',
-        top: 0, // Indicator now at the top of the bottom bar
+        top: 0,
         height: 3,
         backgroundColor: theme.colors.primary,
         borderBottomLeftRadius: 3,
