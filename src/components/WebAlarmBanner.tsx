@@ -19,16 +19,25 @@ const CHECK_INTERVAL_MS = 30_000; // 30 seconds
 // ---------------------------------------------------------------------------
 // Web Audio API beep (no external file needed)
 // ---------------------------------------------------------------------------
+// Web Audio API beep (no external file needed)
+// ---------------------------------------------------------------------------
+const audioCtxContainer = { ctx: null as AudioContext | null };
+
 function playAlarmBeep(): () => void {
     try {
-        const AudioCtxClass =
-            (window as any).AudioContext || (window as any).webkitAudioContext;
+        const AudioCtxClass = (window as any).AudioContext || (window as any).webkitAudioContext;
         if (!AudioCtxClass) return () => { };
 
-        const ctx: AudioContext = new AudioCtxClass();
+        if (!audioCtxContainer.ctx || audioCtxContainer.ctx.state === 'closed') {
+            audioCtxContainer.ctx = new AudioCtxClass();
+        }
+        const ctx = audioCtxContainer.ctx!;
+        if (ctx.state === 'suspended') ctx.resume();
+
         let active = true;
 
         const beep = (freq: number, startSec: number, durSec: number) => {
+            if (ctx.state === 'suspended') ctx.resume();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             osc.connect(gain);
@@ -45,7 +54,6 @@ function playAlarmBeep(): () => void {
 
         const pattern = () => {
             if (!active) return;
-            // beep-beep ... longer beep
             beep(880, 0.00, 0.15);
             beep(880, 0.25, 0.15);
             beep(1100, 0.55, 0.40);
@@ -57,7 +65,6 @@ function playAlarmBeep(): () => void {
         return () => {
             active = false;
             clearInterval(intervalId);
-            try { ctx.close(); } catch (_) { }
         };
     } catch (e) {
         console.warn('WebAlarmBanner: audio init failed', e);
@@ -66,7 +73,7 @@ function playAlarmBeep(): () => void {
 }
 
 // ---------------------------------------------------------------------------
-// Inner modal — all hooks live here (no early returns before hooks!)
+// Inner modal
 // ---------------------------------------------------------------------------
 const WebAlarmModal = () => {
     const [queue, setQueue] = useState<FiringAlarm[]>([]);
@@ -80,29 +87,34 @@ const WebAlarmModal = () => {
     const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    // Resume audio on first interaction
+    useEffect(() => {
+        const resume = () => {
+            if (audioCtxContainer.ctx?.state === 'suspended') {
+                audioCtxContainer.ctx.resume();
+            }
+        };
+        window.addEventListener('click', resume, { once: true });
+        return () => window.removeEventListener('click', resume);
+    }, []);
+
     // ---------- Helpers ----------
-    const firedKey = (reminderId: string, slotH: number, slotM: number) =>
-        `vitus_alarm_${reminderId}_${slotH}_${slotM}`;
+    const firedKey = (reminderId: string, h: number, m: number, dateStr: string) =>
+        `vitus_v2_alarm_${reminderId}_${h}_${m}_${dateStr}`;
 
     // ---------- Poll ----------
     const checkAlarms = useCallback(async () => {
         try {
             const { data: reminders, error } = await supabase
                 .from('medication_reminders')
-                .select(`
-                    id,
-                    reminder_time,
-                    frequency_hours,
-                    dosage_quantity,
-                    dosage_unit,
-                    medications ( name )
-                `);
+                .select(`id, reminder_time, frequency_hours, dosage_quantity, dosage_unit, medications ( name )`);
 
             if (error || !reminders) return;
 
             const now = new Date();
             const nowH = now.getHours();
             const nowM = now.getMinutes();
+            const dateStr = now.toISOString().split('T')[0];
             const firing: FiringAlarm[] = [];
 
             for (const rem of reminders) {
@@ -118,8 +130,9 @@ const WebAlarmModal = () => {
 
                 for (let i = 0; i < cycles; i++) {
                     const slotH = (bH + i * freq) % 24;
+                    // Match if in the exact same hour/minute
                     if (slotH === nowH && bM === nowM) {
-                        const key = firedKey(rem.id, slotH, bM);
+                        const key = firedKey(rem.id, slotH, bM, dateStr);
                         if (!sessionStorage.getItem(key)) {
                             sessionStorage.setItem(key, '1');
                             firing.push({
@@ -141,73 +154,40 @@ const WebAlarmModal = () => {
         }
     }, []);
 
-    // ---------- Show modal when new alarms arrive ----------
+    // ---------- Show modal ----------
     useEffect(() => {
         if (queue.length > 0 && !visible) {
-            // Reset animations
+            setVisible(true);
             scaleAnim.setValue(0.85);
             opacityAnim.setValue(0);
 
-            setVisible(true);
-
-            // Animate in
             Animated.parallel([
-                Animated.spring(scaleAnim, {
-                    toValue: 1,
-                    useNativeDriver: true,
-                    tension: 60,
-                    friction: 8,
-                }),
-                Animated.timing(opacityAnim, {
-                    toValue: 1,
-                    duration: 300,
-                    useNativeDriver: true,
-                }),
+                Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }),
+                Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
             ]).start();
 
-            // Pulse loop
             pulseLoop.current = Animated.loop(
                 Animated.sequence([
-                    Animated.timing(pulseAnim, {
-                        toValue: 1.12,
-                        duration: 500,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(pulseAnim, {
-                        toValue: 1,
-                        duration: 500,
-                        useNativeDriver: true,
-                    }),
+                    Animated.timing(pulseAnim, { toValue: 1.12, duration: 500, useNativeDriver: true }),
+                    Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
                 ])
             );
             pulseLoop.current.start();
 
-            // Sound
             stopSoundRef.current = playAlarmBeep();
         }
     }, [queue.length, visible]);
 
     // ---------- Dismiss ----------
     const dismiss = useCallback(() => {
-        // Stop sound & pulse
         if (stopSoundRef.current) stopSoundRef.current();
         if (pulseLoop.current) pulseLoop.current.stop();
 
-        // Animate out
         Animated.parallel([
-            Animated.timing(scaleAnim, {
-                toValue: 0.85,
-                duration: 250,
-                useNativeDriver: true,
-            }),
-            Animated.timing(opacityAnim, {
-                toValue: 0,
-                duration: 250,
-                useNativeDriver: true,
-            }),
+            Animated.timing(scaleAnim, { toValue: 0.85, duration: 250, useNativeDriver: true }),
+            Animated.timing(opacityAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
         ]).start(() => {
             setVisible(false);
-            // Remove current alarm from queue — next one will be shown via useEffect
             setQueue(prev => prev.slice(1));
         });
     }, [scaleAnim, opacityAnim]);
