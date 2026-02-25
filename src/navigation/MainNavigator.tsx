@@ -9,6 +9,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { HealthLogScreen } from '../screens/HealthLogScreen';
 import { MedicationListScreen } from '../screens/MedicationListScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { WebAlarmBanner } from '../components/WebAlarmBanner';
 
 // Height of the tab bar (used for paddingBottom on web)
 const TAB_BAR_HEIGHT = 65;
@@ -43,6 +44,9 @@ export const MainNavigator = () => {
 
     return (
         <View style={styles.container}>
+            {/* Web-only in-app alarm banner (expo-notifications not available on web) */}
+            <WebAlarmBanner />
+
             {/* Content area — on web, pad the bottom so content isn't hidden under the fixed tab bar */}
             <View style={[
                 styles.content,
