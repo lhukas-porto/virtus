@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { scheduleMedicationReminder, requestNotificationPermissions } from '../services/notifications';
 import * as ImagePicker from 'expo-image-picker';
 import { identifyMedicineByGTIN } from '../services/medicineIdentification';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const FREQUENCIES = [
     { label: 'Diário', value: '24' },
@@ -37,7 +38,6 @@ export const AddMedicationScreen = () => {
     const alarmSuffix = instructionParts.length > 1 ? ' - ' + instructionParts.slice(1).join(' - ') : '';
 
     const [name, setName] = useState(editMedication?.name || medInfo?.name || '');
-    const [dosage, setDosage] = useState(editMedication?.dosage || '');
     const [instructions, setInstructions] = useState(initialDescription);
     const [loading, setLoading] = useState(false);
 
@@ -123,6 +123,57 @@ export const AddMedicationScreen = () => {
         }
     };
 
+    const uploadImage = async (uri: string) => {
+        try {
+            let body;
+            const fileExt = 'jpg';
+            const fileName = `${session?.user?.id}-${Date.now()}.${fileExt}`;
+            const filePath = `meds/${fileName}`;
+
+            if (Platform.OS === 'web') {
+                const response = await fetch(uri);
+                body = await response.blob();
+            } else {
+                // Compress image only on native (web handles size well or can be skipped for simplicity here)
+                const manipResult = await ImageManipulator.manipulateAsync(
+                    uri,
+                    [{ resize: { width: 800 } }],
+                    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                );
+
+                const formData = new FormData();
+                formData.append('file', {
+                    uri: manipResult.uri,
+                    name: fileName,
+                    type: 'image/jpeg'
+                } as any);
+                body = formData;
+            }
+
+            const { data, error } = await supabase.storage
+                .from('medications')
+                .upload(filePath, body);
+
+            if (error) {
+                // Try 'avatars' bucket as fallback
+                const { data: fallbackData, error: fallbackError } = await supabase.storage
+                    .from('avatars')
+                    .upload(filePath, body);
+
+                if (fallbackError) throw fallbackError;
+
+                const { data: publicUrl } = supabase.storage.from('avatars').getPublicUrl(filePath);
+                return publicUrl.publicUrl;
+            }
+
+            const { data: publicUrl } = supabase.storage.from('medications').getPublicUrl(filePath);
+            return publicUrl.publicUrl;
+        } catch (e) {
+            console.error('Upload error:', e);
+            return uri;
+        }
+    };
+
     const handleSaveMedication = async () => {
         if (!name) {
             Alert.alert('Ops!', 'O nome do medicamento é obrigatório.');
@@ -154,31 +205,55 @@ export const AddMedicationScreen = () => {
         }
 
         try {
-            // Se edição, preserva a descrição original (sem mexer em alarme antigo se existir no banco, 
-            // mas aqui não estamos mais concatenando alarme novo).
-            // Como removemos a lógica de alarme daqui, instructions é apenas a descrição.
+            let finalImageUrl = image;
 
-            // Se o usuário editou instructions, salvamos o novo valor.
-            // Se existia um suffix de alarme antigo e o usuário editou o texto todo, o suffix pode ter sido apagado visualmente?
-            // Na inicialização do state 'instructions', nós removemos o suffix.
-            // Se salvarmos agora, vamos perder o suffix antigo se não o recolocarmos?
-            // O usuário pediu para TIRAR a função de definir alarme.
-            // Mas se eu editar um remédio que TINHA alarme, e salvar sem o suffix, o alarme quebra?
-            // O alarme depende da string instructions? Sim, o parse é feito lá.
-            // Se eu remover o suffix, o 'MedicationDetailScreen' vai mostrar "Sem alarme configurado".
+            // Task 3: If image is a local file (from camera/gallery), upload to bucket
+            if (image && image.startsWith('file://')) {
+                finalImageUrl = await uploadImage(image);
+            }
 
-            // Decisão: Manter o suffix ANTIGO se ele existia, para não quebrar alarmes existentes ao editar dados básicos.
             const finalInstructions = editMedication ? (instructions + alarmSuffix) : instructions;
 
             const medData = {
                 profile_id: session?.user?.id,
                 name,
-                dosage,
                 brand,
                 barcode: initialBarcode,
                 instructions: finalInstructions || 'Cadastrado no Vitus',
-                image_url: image,
+                image_url: finalImageUrl,
             };
+
+            // Task 1: Check medication_catalog and save to medication_user if missing
+            if (initialBarcode && !editMedication) {
+                try {
+                    const { data: catData } = await supabase
+                        .from('medication_catalog')
+                        .select('ean')
+                        .eq('ean', initialBarcode)
+                        .maybeSingle();
+
+                    if (!catData) {
+                        // Check if already in medication_user to avoid duplicates
+                        const { data: userData } = await supabase
+                            .from('medication_user')
+                            .select('ean')
+                            .eq('ean', initialBarcode)
+                            .maybeSingle();
+
+                        if (!userData) {
+                            await supabase.from('medication_user').insert([{
+                                ean: initialBarcode,
+                                name,
+                                brand,
+                                image_url: finalImageUrl,
+                                description: instructions || 'Cadastrado no Vitus'
+                            }]);
+                        }
+                    }
+                } catch (catErr) {
+                    console.warn('Failed to update medication_user catalog:', catErr);
+                }
+            }
 
             if (editMedication) {
                 // UPDATE
@@ -215,7 +290,6 @@ export const AddMedicationScreen = () => {
                 if (result.brand) setBrand(result.brand);
                 if (result.description) setInstructions(result.description);
                 if (result.image) setImage(result.image);
-                if (result.dosage) setDosage(result.dosage || '');
                 Alert.alert('Sucesso', 'Medicamento encontrado no catálogo!');
             } else {
                 Alert.alert('Não encontrado', 'Não encontramos este código no nosso catálogo.');
@@ -376,16 +450,6 @@ export const AddMedicationScreen = () => {
                                     </View>
                                 </View>
 
-                                {/* Dosagem */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Dosagem</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={dosage}
-                                        onChangeText={setDosage}
-                                        placeholder="Ex: 1 comprimido, 50mg..."
-                                    />
-                                </View>
 
                                 {/* Resumo / Indicação */}
                                 <View style={styles.inputGroup}>

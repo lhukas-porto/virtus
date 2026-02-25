@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigation from './src/navigation';
@@ -13,7 +14,7 @@ import {
     PlayfairDisplay_700Bold
 } from '@expo-google-fonts/playfair-display';
 
-import { View, Text } from 'react-native';
+import { View, Text, Platform } from 'react-native';
 
 import { AlarmOverlay } from './src/components/AlarmOverlay';
 import { initializeNotifications } from './src/services/notifications';
@@ -32,7 +33,14 @@ export default function App() {
     useEffect(() => {
         if (fontsLoaded) {
             SplashScreen.hideAsync();
-            initializeNotifications();
+            const setup = async () => {
+                if (Platform.OS !== 'web') {
+                    const { requestNotificationPermissions } = require('./src/services/notifications');
+                    await requestNotificationPermissions();
+                    await initializeNotifications();
+                }
+            };
+            setup();
         }
     }, [fontsLoaded]);
 
@@ -45,9 +53,11 @@ export default function App() {
     }
 
     return (
-        <AuthProvider>
-            <RootNavigation />
-            <AlarmOverlay />
-        </AuthProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <AuthProvider>
+                <RootNavigation />
+                {Platform.OS !== 'web' && <AlarmOverlay />}
+            </AuthProvider>
+        </GestureHandlerRootView>
     );
 }

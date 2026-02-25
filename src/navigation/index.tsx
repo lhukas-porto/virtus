@@ -1,8 +1,6 @@
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator } from 'react-native';
 import { theme, NavTheme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
@@ -19,49 +17,9 @@ import { AlarmConfigScreen } from '../screens/AlarmConfigScreen';
 import { SelectMedicationScreen } from '../screens/SelectMedicationScreen';
 import { ReportsScreen } from '../screens/ReportsScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { MainNavigator } from './MainNavigator';
 
-const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
-
-function AppTabs() {
-    return (
-        <Tab.Navigator
-            screenOptions={({ route }) => ({
-                tabBarIcon: ({ focused, color, size }) => {
-                    let iconName;
-                    if (route.name === 'Alarmes') iconName = focused ? 'alarm' : 'alarm-outline';
-                    else if (route.name === 'Monitoramento') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-                    else if (route.name === 'Farmacia') iconName = focused ? 'medical' : 'medical-outline';
-                    else if (route.name === 'Perfil') iconName = focused ? 'person' : 'person-outline';
-
-                    return <Ionicons name={iconName as any} size={size} color={color} />;
-                },
-                tabBarActiveTintColor: theme.colors.primary,
-                tabBarInactiveTintColor: 'gray',
-                headerShown: false,
-                tabBarStyle: { height: 75, paddingBottom: 15, paddingTop: 10 },
-                tabBarLabelStyle: { fontSize: 12, fontFamily: theme.fonts.semiBold }
-            })}
-        >
-            <Tab.Screen
-                name="Alarmes"
-                component={HomeScreen}
-                options={{ tabBarLabel: 'Alarmes' }}
-            />
-            <Tab.Screen
-                name="Monitoramento"
-                component={HealthLogScreen}
-                options={{ tabBarLabel: 'Monitoramento' }}
-            />
-            <Tab.Screen
-                name="Farmacia"
-                component={MedicationListScreen}
-                options={{ tabBarLabel: 'Farmácia' }}
-            />
-            <Tab.Screen name="Perfil" component={ProfileScreen} />
-        </Tab.Navigator>
-    );
-}
 
 export default function RootNavigation() {
     const { session, loading } = useAuth();
@@ -79,7 +37,7 @@ export default function RootNavigation() {
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 {session ? (
                     <>
-                        <Stack.Screen name="Main" component={AppTabs} />
+                        <Stack.Screen name="Main" component={MainNavigator} />
                         <Stack.Screen name="HealthLog" component={HealthLogScreen} />
                         <Stack.Screen name="AddMedication" component={AddMedicationScreen} />
                         <Stack.Screen name="Scanner" component={ScannerScreen} />

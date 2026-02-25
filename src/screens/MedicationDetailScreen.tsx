@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, StatusBar, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ export const MedicationDetailScreen = () => {
     const [showImageModal, setShowImageModal] = useState(false);
     const [med, setMed] = useState(medication);
     const [reminders, setReminders] = useState<any[]>([]);
+    const [nextDoses, setNextDoses] = useState<any[]>([]);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -37,16 +38,75 @@ export const MedicationDetailScreen = () => {
 
                 if (remData) {
                     setReminders(remData);
+
+                    // Generate next 5 doses
+                    const doses: any[] = [];
+                    const now = new Date();
+
+                    remData.forEach(rem => {
+                        const [h, m] = rem.reminder_time.slice(0, 5).split(':').map(Number);
+                        const freq = rem.frequency_hours || 24;
+
+                        let current = new Date();
+                        current.setHours(h, m, 0, 0);
+
+                        // Backtrack to start to find first upcoming
+                        while (current > now) {
+                            current = new Date(current.getTime() - freq * 60 * 60 * 1000);
+                        }
+                        // Move to first future
+                        while (current <= now) {
+                            current = new Date(current.getTime() + freq * 60 * 60 * 1000);
+                        }
+
+                        // Get next few
+                        for (let i = 0; i < 5; i++) {
+                            doses.push({
+                                time: new Date(current),
+                                reminderId: rem.id,
+                                medName: med.name,
+                                frequency: freq
+                            });
+                            current = new Date(current.getTime() + freq * 60 * 60 * 1000);
+                        }
+                    });
+
+                    doses.sort((a, b) => a.time.getTime() - b.time.getTime());
+                    setNextDoses(doses.slice(0, 5));
                 }
             };
             fetchData();
-        }, [medication.id])
+        }, [medication.id, med.name])
     );
 
     // Separa o resumo do sufixo de alarme (ex: "Analgésico - Diário das 08:00")
     const parts = (med.instructions || '').split(' - ');
     const summary = parts[0] !== 'Cadastrado no Vitus' ? parts[0] : '';
     const alarmInfo = parts.length > 1 ? parts.slice(1).join(' - ') : '';
+
+    const handleDeleteReminder = async (reminderId: string, timeLabel: string) => {
+        Alert.alert(
+            'Cancelar Alarmes',
+            `Deseja cancelar o alarme de ${timeLabel} e todos os seguintes desta série?`,
+            [
+                { text: 'Não' },
+                {
+                    text: 'Sim, Cancelar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const { error } = await supabase.from('medication_reminders').delete().eq('id', reminderId);
+                        if (!error) {
+                            // Update local list
+                            setReminders(prev => prev.filter(r => r.id !== reminderId));
+                            setNextDoses(prev => prev.filter(d => d.reminderId !== reminderId));
+                            DeviceEventEmitter.emit('event.refreshAgenda');
+                            Alert.alert('Sucesso', 'Alarme e sequências futuras removidos.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     const handleDelete = () => {
         Alert.alert(
@@ -139,14 +199,6 @@ export const MedicationDetailScreen = () => {
                             ) : null}
                         </View>
 
-                        {/* Dosagem */}
-                        {med.dosage ? (
-                            <View style={styles.infoRow}>
-                                <Ionicons name="flask-outline" size={20} color={theme.colors.primary} />
-                                <Text style={styles.infoLabel}>Dosagem</Text>
-                                <Text style={styles.infoValue}>{med.dosage}</Text>
-                            </View>
-                        ) : null}
 
                         {/* Resumo / Indicação */}
                         {summary ? (
@@ -159,27 +211,34 @@ export const MedicationDetailScreen = () => {
                             </View>
                         ) : null}
 
-                        {/* Alarme Section (New) */}
                         <View style={styles.actionCard}>
                             <View style={styles.summaryHeader}>
                                 <Ionicons name="alarm-outline" size={20} color={theme.colors.accent} />
-                                <Text style={[styles.summaryTitle, { color: theme.colors.accent }]}>Alarmes</Text>
+                                <Text style={[styles.summaryTitle, { color: theme.colors.accent }]}>Próximas Doses</Text>
                             </View>
 
-                            {reminders.length > 0 ? (
-                                reminders.map((rem, i) => (
-                                    <View key={rem.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingLeft: 8 }}>
-                                        <Ionicons name="time-outline" size={16} color={theme.colors.text} style={{ opacity: 0.6, marginRight: 8 }} />
-                                        <Text style={{ fontFamily: theme.fonts.bold, fontSize: 16 }}>
-                                            {rem.reminder_time.slice(0, 5)}
-                                        </Text>
-                                        <Text style={{ fontFamily: theme.fonts.body, marginLeft: 8, opacity: 0.7 }}>
-                                            (A cada {rem.frequency_hours}h)
-                                        </Text>
-                                    </View>
-                                ))
+                            {nextDoses.length > 0 ? (
+                                nextDoses.map((dose, i) => {
+                                    const timeStr = dose.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                    const dateStr = dose.time.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                                    return (
+                                        <View key={`${dose.reminderId}-${i}`} style={styles.doseRow}>
+                                            <View style={styles.doseInfo}>
+                                                <Ionicons name="time-outline" size={18} color={theme.colors.text} style={{ opacity: 0.6 }} />
+                                                <Text style={styles.doseTime}>{timeStr}</Text>
+                                                <Text style={styles.doseDate}>{dateStr}</Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                onPress={() => handleDeleteReminder(dose.reminderId, timeStr)}
+                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            >
+                                                <Ionicons name="trash-outline" size={18} color={theme.colors.alert} opacity={0.6} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    );
+                                })
                             ) : (
-                                <Text style={styles.noAlarmText}>Nenhum alarme configurado.</Text>
+                                <Text style={styles.noAlarmText}>Nenhuma dose pendente.</Text>
                             )}
 
                             <TouchableOpacity
@@ -187,7 +246,7 @@ export const MedicationDetailScreen = () => {
                                 onPress={() => navigation.navigate('AlarmConfig', { medicationId: med.id, medicationName: med.name })}
                             >
                                 <Ionicons name="add-circle" size={20} color={theme.colors.primary} />
-                                <Text style={styles.addAlarmText}>Novo Alarme</Text>
+                                <Text style={styles.addAlarmText}>Adicionar Novo Horário</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -434,6 +493,30 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: theme.fonts.bold,
         color: theme.colors.alert,
+    },
+    doseRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    doseInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    doseTime: {
+        fontSize: 16,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+    },
+    doseDate: {
+        fontSize: 14,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.text,
+        opacity: 0.5,
     },
     // Modal
     modalContainer: {

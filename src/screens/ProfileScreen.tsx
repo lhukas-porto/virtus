@@ -88,15 +88,22 @@ export const ProfileScreen = () => {
         try {
             const fileExt = asset.uri.split('.').pop() || 'jpg';
             const fileName = `${session?.user?.id}-${Date.now()}.${fileExt}`;
+            let body;
 
-            const formData = new FormData();
-            formData.append('file', {
-                uri: asset.uri,
-                name: fileName,
-                type: asset.mimeType || 'image/jpeg'
-            } as any);
+            if (Platform.OS === 'web') {
+                const response = await fetch(asset.uri);
+                body = await response.blob();
+            } else {
+                const formData = new FormData();
+                formData.append('file', {
+                    uri: asset.uri,
+                    name: fileName,
+                    type: asset.mimeType || 'image/jpeg'
+                } as any);
+                body = formData;
+            }
 
-            const { data, error } = await supabase.storage.from('avatars').upload(fileName, formData);
+            const { data, error } = await supabase.storage.from('avatars').upload(fileName, body);
 
             if (error) throw error;
 
@@ -104,6 +111,7 @@ export const ProfileScreen = () => {
             setAvatar(publicUrl.publicUrl);
 
         } catch (uploadError) {
+            console.error('Upload failed, attempting local fallback:', uploadError);
             try {
                 const manipResult = await ImageManipulator.manipulateAsync(
                     asset.uri,
@@ -306,21 +314,6 @@ export const ProfileScreen = () => {
                 {!isEditing && (
                     <>
                         <View style={styles.menuSection}>
-                            <TouchableOpacity style={styles.menuItem}>
-                                <View style={styles.menuIcon}>
-                                    <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
-                                </View>
-                                <Text style={styles.menuText}>Lembretes e Avisos</Text>
-                                <Ionicons name="chevron-forward" size={20} color={theme.colors.border} />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={styles.menuItem}>
-                                <View style={styles.menuIcon}>
-                                    <Ionicons name="shield-checkmark-outline" size={24} color={theme.colors.text} />
-                                </View>
-                                <Text style={styles.menuText}>Privacidade e Segurança</Text>
-                                <Ionicons name="chevron-forward" size={20} color={theme.colors.border} />
-                            </TouchableOpacity>
 
                             <TouchableOpacity style={styles.menuItem} onPress={handleSupport}>
                                 <View style={styles.menuIcon}>

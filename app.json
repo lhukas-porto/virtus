@@ -22,7 +22,11 @@
       },
       "package": "com.lucas.vitus",
       "permissions": [
-        "CAMERA"
+        "CAMERA",
+        "NOTIFICATIONS",
+        "VIBRATE",
+        "WAKE_LOCK",
+        "SCHEDULE_EXACT_ALARM"
       ]
     },
     "web": {

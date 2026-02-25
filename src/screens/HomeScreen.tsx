@@ -1,57 +1,64 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Image, DeviceEventEmitter } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, DeviceEventEmitter, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Swipeable } from 'react-native-gesture-handler';
 import { theme } from '../theme/theme';
 import { Card } from '../components/Card';
-import { Button } from '../components/Button';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { Button } from '../components/Button';
+import { syncNotifications } from '../services/notifications';
+import { Swipeable } from 'react-native-gesture-handler';
 
 export const HomeScreen = () => {
-    const { session, profile } = useAuth();
+    const { session } = useAuth();
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const [agendaItems, setAgendaItems] = React.useState<any[]>([]);
-    const [loading, setLoading] = React.useState(true);
-    const [hiddenItems, setHiddenItems] = React.useState<string[]>([]);
-
-    const userName = profile?.name || session?.user?.user_metadata?.name || 'Vitus';
+    const [agendaItems, setAgendaItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [userName, setUserName] = useState('');
+    const [hiddenItems, setHiddenItems] = useState<string[]>([]);
 
     const fetchAgenda = async () => {
         if (!session?.user?.id) return;
-
         try {
             setLoading(true);
 
-            // 1. Fetch Active Reminders
+            // Get user info
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('name')
+                .eq('id', session.user.id)
+                .single();
+
+            if (profile?.name) {
+                setUserName(profile.name.split(' ')[0]);
+            } else if (session?.user?.user_metadata?.name) {
+                setUserName(session.user.user_metadata.name.split(' ')[0]);
+            } else {
+                setUserName('Usuário');
+            }
+
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
+            // 1. Fetch Reminders
             const { data: reminders, error: remError } = await supabase
                 .from('medication_reminders')
                 .select(`
-                    id,
-                    reminder_time,
-                    frequency_hours,
-                    medication_id,
-                    medications (
-                        id,
-                        name,
-                        dosage,
-                        image_url,
-                        brand
-                    )
-                `);
+                    *,
+                    medications!inner (*)
+                `)
+                .eq('medications.profile_id', session.user.id);
 
             if (remError) throw remError;
 
             // 2. Fetch Today's Logs
-            const todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-
             const { data: logs, error: logError } = await supabase
                 .from('medication_logs')
                 .select('*')
+                .eq('status', 'taken')
                 .gte('taken_at', todayStart.toISOString());
 
             if (logError) throw logError;
@@ -62,50 +69,68 @@ export const HomeScreen = () => {
             reminders?.forEach((rem: any) => {
                 if (!rem.medications) return;
 
+                // Check treatment duration
+                if (rem.duration_days && rem.created_at) {
+                    const start = new Date(rem.created_at);
+                    const endTreat = new Date(start);
+                    endTreat.setDate(endTreat.getDate() + rem.duration_days);
+                    endTreat.setHours(23, 59, 59, 999);
+
+                    if (todayStart > endTreat) return; // Treatment finished
+                }
+
                 const [h, m] = rem.reminder_time.slice(0, 5).split(':').map(Number);
-
-                let time = new Date();
-                time.setHours(h, m, 0, 0);
-
-                const endOfDay = new Date();
-                endOfDay.setHours(23, 59, 59, 999);
+                const endOfToday = new Date(todayStart);
+                endOfToday.setHours(23, 59, 59, 999);
 
                 // Start from reminder_time today
-                let current = new Date(time);
-                // Ensure match today
-                current.setFullYear(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate());
+                let current = new Date(todayStart);
+                current.setHours(h, m, 0, 0);
 
-                while (current <= endOfDay) {
-                    if (current >= todayStart) {
-                        // Check logs
-                        const slotTime = new Date(current);
-                        const windowMs = (rem.frequency_hours * 60 * 60 * 1000) / 2;
+                const freq = rem.frequency_hours || 24;
 
-                        const matchedLog = logs?.find(l => {
-                            if (l.reminder_id !== rem.id) return false;
-                            const logTime = new Date(l.taken_at).getTime();
-                            return Math.abs(logTime - slotTime.getTime()) < windowMs;
-                        });
+                // Backtrack current until start of today
+                while (current > todayStart) {
+                    current = new Date(current.getTime() - freq * 60 * 60 * 1000);
+                }
+                // Advance to first valid slot today
+                while (current < todayStart) {
+                    current = new Date(current.getTime() + freq * 60 * 60 * 1000);
+                }
 
-                        // Fallback: Se for diário (>= 20h) e não achou na janela (muito atrasado/adiantado),
-                        // aceita qualquer log feito hoje para este reminder.
-                        // Isso resolve o caso: Alarme 08:00, Usuário marca as 23:00.
-                        let finalLog = matchedLog;
-                        if (!finalLog && rem.frequency_hours >= 20) {
-                            finalLog = logs?.find(l => l.reminder_id === rem.id);
-                        }
+                while (current <= endOfToday) {
+                    const slotTime = new Date(current);
 
-                        generatedItems.push({
-                            id: rem.id + '-' + slotTime.toISOString(),
-                            reminderId: rem.id,
-                            medication: rem.medications,
-                            time: slotTime,
-                            log: finalLog,
-                            status: finalLog ? finalLog.status : 'pending',
-                            original: rem
-                        });
+                    // CRITICAL: Only items from the SAME day as todayStart
+                    if (slotTime.toDateString() !== todayStart.toDateString()) {
+                        current = new Date(current.getTime() + freq * 60 * 60 * 1000);
+                        continue;
                     }
-                    current = new Date(current.getTime() + rem.frequency_hours * 60 * 60 * 1000);
+
+                    const windowMs = (freq * 60 * 60 * 1000) / 2;
+
+                    const matchedLog = logs?.find(l => {
+                        if (l.reminder_id !== rem.id) return false;
+                        const logTime = new Date(l.taken_at).getTime();
+                        return Math.abs(logTime - slotTime.getTime()) < windowMs;
+                    });
+
+                    let finalLog = matchedLog;
+                    if (!finalLog && freq >= 20) {
+                        finalLog = logs?.find(l => l.reminder_id === rem.id);
+                    }
+
+                    generatedItems.push({
+                        id: rem.id + '-' + slotTime.toISOString(),
+                        reminderId: rem.id,
+                        medication: rem.medications,
+                        time: slotTime,
+                        log: finalLog,
+                        status: finalLog ? finalLog.status : 'pending',
+                        original: rem
+                    });
+
+                    current = new Date(current.getTime() + freq * 60 * 60 * 1000);
                 }
             });
 
@@ -116,6 +141,53 @@ export const HomeScreen = () => {
             console.error('Error fetching agenda:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleReload = () => {
+        // Identifica quais itens da agenda atual estão marcados como ocultos
+        const hiddenInAgenda = agendaItems.filter(item => hiddenItems.includes(item.id));
+
+        // Pega apenas os 5 últimos (mais recentes no tempo) para mostrar de volta
+        const toShowAgain = hiddenInAgenda.slice(-5).map(it => it.id);
+
+        // Remove apenas esses 5 da lista de ocultos
+        setHiddenItems(prev => prev.filter(id => !toShowAgain.includes(id)));
+
+        fetchAgenda();
+    };
+
+    const showFutureSchedule = (item: any) => {
+        const freq = item.original.frequency_hours || 24;
+        const futureTimes: string[] = [];
+
+        const now = new Date();
+        const endOfTomorrow = new Date(now);
+        endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
+        endOfTomorrow.setHours(23, 59, 59, 999);
+
+        let current = new Date(item.time.getTime() + freq * 60 * 60 * 1000);
+
+        while (current <= endOfTomorrow) {
+            if (current > now) {
+                const dayLabel = current.getDate() === now.getDate() ? 'Hoje' : 'Amanhã';
+                futureTimes.push(`• ${dayLabel} às ${current.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+            }
+            current = new Date(current.getTime() + freq * 60 * 60 * 1000);
+            if (futureTimes.length >= 8) break;
+        }
+
+        if (futureTimes.length === 0) {
+            Alert.alert(
+                item.medication.name,
+                "Uso finalizado ou sem novas doses previstas para as próximas 24h."
+            );
+        } else {
+            Alert.alert(
+                `Próximas Doses: ${item.medication.name}`,
+                `Confira seus próximos horários:\n\n${futureTimes.join('\n')}`,
+                [{ text: 'OK', style: 'default' }]
+            );
         }
     };
 
@@ -132,21 +204,23 @@ export const HomeScreen = () => {
 
             if (error) throw error;
             fetchAgenda();
-
         } catch (e) {
             Alert.alert('Erro', 'Falha ao registrar.');
         }
     };
 
     const handleDeleteReminder = async (reminderId: string) => {
-        Alert.alert('Excluir Alarme', 'Isso removerá este agendamento recorrente. Confirmar?', [
-            { text: 'Cancelar' },
+        Alert.alert('Cancelar Alarme', 'Deseja cancelar o alarme atual e todos os seguintes para este medicamento?', [
+            { text: 'Não' },
             {
-                text: 'Excluir',
+                text: 'Sim, Cancelar',
                 style: 'destructive',
                 onPress: async () => {
                     const { error } = await supabase.from('medication_reminders').delete().eq('id', reminderId);
-                    if (!error) fetchAgenda();
+                    if (!error) {
+                        await syncNotifications();
+                        fetchAgenda();
+                    }
                 }
             }
         ]);
@@ -160,14 +234,11 @@ export const HomeScreen = () => {
 
     React.useEffect(() => {
         const sub = DeviceEventEmitter.addListener('event.refreshAgenda', fetchAgenda);
-        return () => sub.remove();
-    }, []);
-
-    React.useEffect(() => {
-        const subscription = DeviceEventEmitter.addListener('event.medicationTaken', () => {
-            fetchAgenda();
-        });
-        return () => subscription.remove();
+        const subTaken = DeviceEventEmitter.addListener('event.medicationTaken', fetchAgenda);
+        return () => {
+            sub.remove();
+            subTaken.remove();
+        };
     }, []);
 
     return (
@@ -190,7 +261,6 @@ export const HomeScreen = () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* Daily Agenda Section */}
                 <View style={[styles.section, { flex: 1 }]}>
                     <View style={styles.sectionHeader}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -202,8 +272,11 @@ export const HomeScreen = () => {
                                 </View>
                             </View>
                         </View>
-                        <TouchableOpacity onPress={fetchAgenda}>
-                            <Ionicons name="refresh" size={20} color={theme.colors.primary} />
+                        <TouchableOpacity
+                            onPress={handleReload}
+                            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                        >
+                            <Ionicons name="refresh" size={24} color={theme.colors.primary} />
                         </TouchableOpacity>
                     </View>
 
@@ -231,59 +304,69 @@ export const HomeScreen = () => {
                                         }
                                     }}
                                 >
-                                    <Card style={[styles.agendaCard, { marginBottom: 0 }]}>
-                                        <View style={styles.agendaInfo}>
-                                            <View style={[styles.timeBox, isTaken && styles.timeBoxTaken]}>
-                                                <Text style={[styles.timeText, isTaken && { color: '#FFF' }]}>
-                                                    {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </Text>
+                                    <TouchableOpacity
+                                        activeOpacity={0.9}
+                                        onPress={() => isTaken ? showFutureSchedule(item) : handleCheck(item)}
+                                    >
+                                        <Card style={styles.agendaCard}>
+                                            <View style={styles.agendaInfo}>
+                                                <View style={[styles.timeBox, isTaken && styles.timeBoxTaken]}>
+                                                    <Text style={[styles.timeText, isTaken && { color: '#FFF' }]}>
+                                                        {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </Text>
+                                                </View>
+
+                                                <View style={{ flex: 1, paddingHorizontal: 12 }}>
+                                                    <Text style={[styles.agendaMedName, isTaken && { textDecorationLine: 'line-through', opacity: 0.6 }]}>
+                                                        {item.medication.name}
+                                                    </Text>
+                                                    {item.original.dosage_quantity && (
+                                                        <Text style={styles.agendaDosage}>
+                                                            {item.original.dosage_quantity} {item.original.dosage_unit}
+                                                            {item.original.duration_days ? ` por ${item.original.duration_days} dias` : ' (Uso contínuo)'}
+                                                        </Text>
+                                                    )}
+                                                </View>
+
+                                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                    <TouchableOpacity
+                                                        style={[styles.checkCircle, isTaken && styles.checkCircleActive]}
+                                                        onPress={() => handleCheck(item)}
+                                                        disabled={isTaken}
+                                                    >
+                                                        <Ionicons
+                                                            name={isTaken ? "checkmark" : "ellipse-outline"}
+                                                            size={24}
+                                                            color={isTaken ? "#FFF" : theme.colors.primary}
+                                                        />
+                                                    </TouchableOpacity>
+
+                                                    {!isTaken && (
+                                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                                            <TouchableOpacity
+                                                                style={styles.optionBtn}
+                                                                onPress={() => navigation.navigate('AlarmConfig', {
+                                                                    reminder: item.original,
+                                                                    medicationId: item.medication.id,
+                                                                    medicationName: item.medication.name,
+                                                                    slotTime: item.time.toISOString()
+                                                                })}
+                                                            >
+                                                                <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
+                                                            </TouchableOpacity>
+
+                                                            <TouchableOpacity
+                                                                style={styles.optionBtn}
+                                                                onPress={() => handleDeleteReminder(item.reminderId)}
+                                                            >
+                                                                <Ionicons name="trash-outline" size={20} color={theme.colors.alert} />
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    )}
+                                                </View>
                                             </View>
-
-                                            <View style={{ flex: 1, paddingHorizontal: 12 }}>
-                                                <Text style={[styles.agendaMedName, isTaken && { textDecorationLine: 'line-through', opacity: 0.6 }]}>
-                                                    {item.medication.name}
-                                                </Text>
-                                                <Text style={styles.agendaMedDosage}>{item.medication.dosage}</Text>
-                                            </View>
-
-                                            <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                <TouchableOpacity
-                                                    style={[styles.checkCircle, isTaken && styles.checkCircleActive]}
-                                                    onPress={() => handleCheck(item)}
-                                                    disabled={isTaken}
-                                                >
-                                                    <Ionicons
-                                                        name={isTaken ? "checkmark" : "ellipse-outline"}
-                                                        size={24}
-                                                        color={isTaken ? "#FFF" : theme.colors.primary}
-                                                    />
-                                                </TouchableOpacity>
-
-                                                {!isTaken && (
-                                                    <View style={{ flexDirection: 'row', gap: 12 }}>
-                                                        <TouchableOpacity
-                                                            style={styles.optionBtn}
-                                                            onPress={() => navigation.navigate('AlarmConfig', {
-                                                                reminder: item.original,
-                                                                medicationId: item.medication.id,
-                                                                medicationName: item.medication.name,
-                                                                slotTime: item.time.toISOString()
-                                                            })}
-                                                        >
-                                                            <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                                                        </TouchableOpacity>
-
-                                                        <TouchableOpacity
-                                                            style={styles.optionBtn}
-                                                            onPress={() => handleDeleteReminder(item.reminderId)}
-                                                        >
-                                                            <Ionicons name="trash-outline" size={20} color={theme.colors.alert} />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                )}
-                                            </View>
-                                        </View>
-                                    </Card>
+                                        </Card>
+                                    </TouchableOpacity>
                                 </Swipeable>
                             );
                         })
@@ -295,7 +378,6 @@ export const HomeScreen = () => {
                     )}
                 </View>
 
-                {/* Single Clean Add Button */}
                 <Button
                     title="+ Novo Alarme"
                     onPress={() => navigation.navigate('SelectMedication')}
@@ -358,6 +440,7 @@ const styles = StyleSheet.create({
     agendaCard: {
         padding: 12,
         borderRadius: 20,
+        marginBottom: 4,
     },
     agendaInfo: {
         flexDirection: 'row',
@@ -381,16 +464,16 @@ const styles = StyleSheet.create({
         color: theme.colors.primary
     },
     agendaMedName: {
-        fontSize: 17,
+        fontSize: 18,
         fontFamily: theme.fonts.bold,
         color: theme.colors.text,
-        marginBottom: 2,
     },
-    agendaMedDosage: {
-        fontSize: 13,
+    agendaDosage: {
+        fontSize: 14,
         fontFamily: theme.fonts.body,
-        color: theme.colors.text,
-        opacity: 0.5,
+        color: theme.colors.primary,
+        opacity: 0.8,
+        marginTop: 2,
     },
     checkCircle: {
         width: 44,

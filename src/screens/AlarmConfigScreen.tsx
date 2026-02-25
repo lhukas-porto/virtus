@@ -39,6 +39,9 @@ export const AlarmConfigScreen = () => {
     };
 
     const [startTime, setStartTime] = useState(getInitialTime());
+    const [dosageQuantity, setDosageQuantity] = useState(reminder?.dosage_quantity?.toString() || '');
+    const [dosageUnit, setDosageUnit] = useState(reminder?.dosage_unit || 'comprimido(s)');
+    const [durationDays, setDurationDays] = useState(reminder?.duration_days?.toString() || '');
 
     // Calcular horários previstos
     const projectedTimes = useMemo(() => {
@@ -51,10 +54,11 @@ export const AlarmConfigScreen = () => {
         if (isNaN(startM)) startM = 0;
 
         // Limita a 24h cycle para visualização (max steps = 24 / freq)
-        const cycles = Math.floor(24 / selectedFreq);
+        const freq = selectedFreq > 0 ? selectedFreq : 24;
+        const cycles = Math.floor(24 / freq);
 
         for (let i = 0; i < cycles; i++) {
-            let nextH = (startH + (i * selectedFreq)) % 24;
+            let nextH = (startH + (i * freq)) % 24;
             times.push(`${String(nextH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`);
         }
         return times.sort();
@@ -79,7 +83,10 @@ export const AlarmConfigScreen = () => {
                     .from('medication_reminders')
                     .update({
                         reminder_time: startTime + ':00',
-                        frequency_hours: selectedFreq
+                        frequency_hours: selectedFreq,
+                        dosage_quantity: dosageQuantity ? parseFloat(dosageQuantity) : null,
+                        dosage_unit: dosageUnit,
+                        duration_days: durationDays ? parseInt(durationDays, 10) : null
                     })
                     .eq('id', reminder.reminderId || reminder.id)
                     .select();
@@ -97,7 +104,10 @@ export const AlarmConfigScreen = () => {
                     .insert([{
                         medication_id: medicationId,
                         reminder_time: startTime + ':00',
-                        frequency_hours: selectedFreq
+                        frequency_hours: selectedFreq,
+                        dosage_quantity: dosageQuantity ? parseFloat(dosageQuantity) : null,
+                        dosage_unit: dosageUnit,
+                        duration_days: durationDays ? parseInt(durationDays, 10) : null
                     }]);
 
                 if (error) throw error;
@@ -127,23 +137,72 @@ export const AlarmConfigScreen = () => {
         }
     };
 
+    const performSaveOnlyFuture = async () => {
+        if (!slotTime) return performSave();
+
+        setLoading(true);
+        try {
+            // 1. Delete original reminder series
+            await supabase.from('medication_reminders').delete().eq('id', reminder.id);
+
+            // 2. Create new reminder series starting from the NEW slotTime
+            const { error } = await supabase
+                .from('medication_reminders')
+                .insert([{
+                    medication_id: medicationId,
+                    reminder_time: startTime + ':00',
+                    frequency_hours: selectedFreq,
+                    dosage_quantity: dosageQuantity ? parseFloat(dosageQuantity) : null,
+                    dosage_unit: dosageUnit,
+                    duration_days: durationDays ? parseInt(durationDays, 10) : null
+                }]);
+
+            if (error) throw error;
+
+            await syncNotifications();
+
+            Alert.alert('Sucesso', 'Horários atualizados daqui para frente!', [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        DeviceEventEmitter.emit('event.refreshAgenda');
+                        navigation.reset({
+                            index: 0,
+                            routes: [{ name: 'Main', params: { refreshTimestamp: Date.now() } }],
+                        });
+                    }
+                }
+            ]);
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Erro', 'Falha ao atualizar horários.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSaveAlarm = async () => {
         if (!startTime || startTime.length < 5) {
             Alert.alert('Ops', 'Informe um horário válido (HH:MM).');
             return;
         }
 
+        if (selectedFreq <= 0) {
+            Alert.alert('Ops', 'Informe uma frequência maior que zero.');
+            return;
+        }
+
         if (isEditing) {
             Alert.alert(
                 'Editar Alarme',
-                'Esta alteração deve ser aplicada para:',
+                'Deseja aplicar esta nova hora para este evento e todos os próximos horários da série?',
                 [
                     {
-                        text: 'Apenas hoje',
-                        onPress: () => Alert.alert('Aviso', 'Edição de ocorrência única em desenvolvimento. Por favor, use "Todos os futuros" para alterar o horário padrão.')
+                        text: 'Sim, aplicar para todos',
+                        onPress: performSaveOnlyFuture
                     },
                     {
-                        text: 'Todos os futuros',
+                        text: 'Apenas salvar como padrão',
                         onPress: performSave
                     },
                     { text: 'Cancelar', style: 'cancel' }
@@ -180,30 +239,59 @@ export const AlarmConfigScreen = () => {
                     <Ionicons name="time-outline" size={24} color={theme.colors.text} style={{ opacity: 0.5 }} />
                 </View>
 
-                <Text style={styles.sectionTitle}>2. Frequência</Text>
-                <View style={styles.freqGrid}>
-                    {FREQUENCIES.map(freq => (
+                <Text style={styles.sectionTitle}>2. Frequência (em horas)</Text>
+                <View style={styles.inputContainer}>
+                    <Ionicons name="repeat-outline" size={24} color={theme.colors.primary} style={{ marginRight: 12, opacity: 0.5 }} />
+                    <TextInput
+                        style={styles.input}
+                        value={selectedFreq.toString()}
+                        onChangeText={(val) => {
+                            const num = parseInt(val, 10);
+                            setSelectedFreq(isNaN(num) ? 0 : num);
+                        }}
+                        placeholder="Ex: 8"
+                        keyboardType="numeric"
+                    />
+                    <Text style={{ fontFamily: theme.fonts.bold, opacity: 0.5, marginLeft: 8 }}>horas</Text>
+                </View>
+
+                <Text style={styles.sectionTitle}>3. Dosagem</Text>
+                <View style={styles.row}>
+                    <View style={[styles.inputContainer, { flex: 1 }]}>
+                        <TextInput
+                            style={styles.input}
+                            value={dosageQuantity}
+                            onChangeText={setDosageQuantity}
+                            placeholder="Qtd (ex: 1)"
+                            keyboardType="numeric"
+                        />
+                    </View>
+                    <View style={styles.unitToggleContainer}>
                         <TouchableOpacity
-                            key={freq.value}
-                            style={[
-                                styles.freqCard,
-                                selectedFreq === freq.value && styles.freqCardActive
-                            ]}
-                            onPress={() => setSelectedFreq(freq.value)}
+                            style={[styles.unitBtn, dosageUnit === 'gota(s)' && styles.unitBtnActive]}
+                            onPress={() => setDosageUnit('gota(s)')}
                         >
-                            <Ionicons
-                                name={freq.icon as any}
-                                size={28}
-                                color={selectedFreq === freq.value ? '#FFF' : theme.colors.primary}
-                            />
-                            <Text style={[
-                                styles.freqLabel,
-                                selectedFreq === freq.value && styles.freqLabelActive
-                            ]}>
-                                {freq.label}
-                            </Text>
+                            <Text style={[styles.unitBtnText, dosageUnit === 'gota(s)' && styles.unitBtnTextActive]}>Gota(s)</Text>
                         </TouchableOpacity>
-                    ))}
+                        <TouchableOpacity
+                            style={[styles.unitBtn, dosageUnit === 'comprimido(s)' && styles.unitBtnActive]}
+                            onPress={() => setDosageUnit('comprimido(s)')}
+                        >
+                            <Text style={[styles.unitBtnText, dosageUnit === 'comprimido(s)' && styles.unitBtnTextActive]}>Comprimido(s)</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <Text style={styles.sectionTitle}>4. Duração do Tratamento</Text>
+                <View style={styles.inputContainer}>
+                    <TextInput
+                        style={styles.input}
+                        value={durationDays}
+                        onChangeText={setDurationDays}
+                        placeholder="Ex: 7 dias (vazio para contínuo)"
+                        keyboardType="numeric"
+                    />
+                    <Text style={{ fontFamily: theme.fonts.bold, opacity: 0.5 }}>Dias</Text>
                 </View>
 
                 <View style={styles.previewContainer}>
@@ -310,16 +398,73 @@ const styles = StyleSheet.create({
     freqCardActive: {
         backgroundColor: theme.colors.primary,
         borderColor: theme.colors.primary,
+        elevation: 4,
+        shadowColor: theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
     },
     freqLabel: {
         fontSize: 14,
-        fontFamily: theme.fonts.body,
+        fontFamily: theme.fonts.bold,
         color: theme.colors.text,
         textAlign: 'center',
     },
     freqLabelActive: {
         color: '#FFF',
+    },
+    row: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 24,
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF',
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        marginBottom: 24,
+    },
+    input: {
+        flex: 1,
+        fontSize: 16,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.text,
+        paddingVertical: 14,
+    },
+    unitToggleContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#F0F0F0',
+        borderRadius: 12,
+        padding: 4,
+        height: 54,
+        marginTop: 0,
+    },
+    unitBtn: {
+        paddingHorizontal: 12,
+        justifyContent: 'center',
+        borderRadius: 10,
+    },
+    unitBtnActive: {
+        backgroundColor: '#FFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    unitBtnText: {
+        fontSize: 12,
         fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+        opacity: 0.5,
+    },
+    unitBtnTextActive: {
+        opacity: 1,
+        color: theme.colors.primary,
     },
     previewContainer: {
         backgroundColor: theme.colors.surface,

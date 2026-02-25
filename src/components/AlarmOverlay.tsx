@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Vibration, Dimensions, Alert, Image, DeviceEventEmitter } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Vibration, Dimensions, Alert, Image, DeviceEventEmitter, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { supabase } from '../services/supabase';
 import { scheduleSnooze } from '../services/notifications';
 import { useAuth } from '../context/AuthContext';
+import { Audio } from 'expo-av';
 
 const { width } = Dimensions.get('window');
 
@@ -13,34 +14,60 @@ export const AlarmOverlay = () => {
     const { session } = useAuth();
     const avatar_url = session?.user?.user_metadata?.avatar_url;
     const [alarmData, setAlarmData] = useState<any>(null);
+    const [sound, setSound] = useState<Audio.Sound | null>(null);
+
+    const [userName, setUserName] = useState('');
 
     useEffect(() => {
-        // Foreground Listener
+        const fetchUserData = async () => {
+            if (session?.user?.id) {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('name')
+                    .eq('id', session.user.id)
+                    .single();
+                if (data?.name) {
+                    setUserName(data.name.split(' ')[0]);
+                } else if (session?.user?.user_metadata?.name) {
+                    setUserName(session.user.user_metadata.name.split(' ')[0]);
+                }
+            }
+        };
+        fetchUserData();
+    }, [session]);
+
+    useEffect(() => {
+        // Configure audio to play even in silent mode
+        Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            staysActiveInBackground: true,
+            interruptionModeIOS: 1, // InterruptionModeIOS.DoNotMix
+            playsInSilentModeIOS: true,
+            shouldDuckAndroid: true,
+            interruptionModeAndroid: 1, // InterruptionModeAndroid.DoNotMix
+            playThroughEarpieceAndroid: false,
+        });
+
         const subscription = Notifications.addNotificationReceivedListener(notification => {
             const data = notification.request.content.data;
             if (data && data.type === 'medication_alarm') {
                 setAlarmData(data);
-                startVibration();
+                startAlarms();
             }
         });
 
-        // Background Listeners (user tapped or action clicked)
         const responseSubscription = Notifications.addNotificationResponseReceivedListener(async response => {
             const data = response.notification.request.content.data;
             const actionId = response.actionIdentifier;
 
             if (data && data.type === 'medication_alarm') {
+                setAlarmData(data);
+                startAlarms();
+
                 if (actionId === 'take') {
-                    // Action: Already taken
                     await handleTakeAction(data);
                 } else if (actionId === 'snooze') {
-                    // Action: Snooze
-                    setAlarmData(data);
                     setTimeout(() => handleSnoozeStart(data), 500);
-                } else {
-                    // Default open
-                    setAlarmData(data);
-                    Vibration.vibrate([0, 500], true);
                 }
             }
         });
@@ -48,16 +75,39 @@ export const AlarmOverlay = () => {
         return () => {
             subscription.remove();
             responseSubscription.remove();
-            stopVibration();
+            stopAlarms();
         };
     }, []);
 
-    const startVibration = () => {
-        Vibration.vibrate([0, 1000, 1000], true);
+    const startAlarms = async () => {
+        // Start Vibration
+        Vibration.vibrate([0, 1000, 500, 1000], true);
+
+        // For "Default System Sound", on Android we rely on the Notification Channel already configured.
+        // However, the USER wants a "continuous" alarm experience like a clock.
+        // We'll keep the overlay sound but if they want the *native* alarm tone, they'd need a local file.
+        // I will use a more "alarm-like" beep and ensure it plays.
+        try {
+            if (sound) await sound.unloadAsync();
+            const { sound: newSound } = await Audio.Sound.createAsync(
+                { uri: 'https://www.soundjay.com/buttons/beep-01a.mp3' },
+                { shouldPlay: true, isLooping: true, volume: 1.0 }
+            );
+            setSound(newSound);
+        } catch (error) {
+            console.log('Error playing sound', error);
+        }
     };
 
-    const stopVibration = () => {
+    const stopAlarms = async () => {
         Vibration.cancel();
+        if (sound) {
+            try {
+                await sound.stopAsync();
+                await sound.unloadAsync();
+            } catch (e) { }
+            setSound(null);
+        }
     };
 
     const handleTake = () => {
@@ -65,7 +115,7 @@ export const AlarmOverlay = () => {
     };
 
     const handleTakeAction = async (data: any) => {
-        stopVibration();
+        stopAlarms();
 
         const { reminderId, medicationId } = data;
 
@@ -81,7 +131,6 @@ export const AlarmOverlay = () => {
                 if (error) {
                     Alert.alert("Erro", "Não foi possível salvar o registro online.");
                 } else {
-                    // Success
                     DeviceEventEmitter.emit('event.medicationTaken');
                 }
             }
@@ -93,7 +142,7 @@ export const AlarmOverlay = () => {
     };
 
     const handleSnoozeStart = (data: any = alarmData) => {
-        stopVibration();
+        stopAlarms();
         if (!data) return;
 
         Alert.alert(
@@ -137,6 +186,9 @@ export const AlarmOverlay = () => {
                         ) : (
                             <Ionicons name="notifications-circle" size={80} color={theme.colors.alert} />
                         )}
+                        <Text style={styles.userName}>
+                            Olá, {userName || 'você'}!
+                        </Text>
                         <Text style={styles.title}>HORA DO REMÉDIO</Text>
                     </View>
 
@@ -182,11 +234,18 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     title: {
-        fontSize: 28,
-        fontFamily: theme.fonts.heading,
+        fontSize: 26,
+        fontFamily: theme.fonts.bold,
         color: theme.colors.alert,
-        marginTop: 16,
+        marginTop: 4,
         textAlign: 'center',
+    },
+    userName: {
+        fontSize: 18,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+        marginTop: 16,
+        opacity: 0.6,
     },
     medName: {
         fontSize: 32,

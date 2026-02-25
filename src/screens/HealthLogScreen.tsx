@@ -29,7 +29,7 @@ export const HealthLogScreen = () => {
                 .select('*')
                 .eq('profile_id', session.user.id)
                 .order('measured_at', { ascending: false })
-                .limit(10);
+                .limit(3);
 
             if (data) setHistory(data);
             if (error) throw error;

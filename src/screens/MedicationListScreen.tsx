@@ -136,9 +136,6 @@ export const MedicationListScreen = () => {
                                                             <Text style={styles.brandText}>{med.brand}</Text>
                                                         </View>
                                                     ) : null}
-                                                    {med.dosage ? (
-                                                        <Text style={styles.medDosage}>{med.dosage}</Text>
-                                                    ) : null}
                                                 </View>
 
                                                 {/* Resumo breve (sem dados de alarme) */}
@@ -190,12 +187,14 @@ export const MedicationListScreen = () => {
                     </ScrollView>
                 )}
 
-                <TouchableOpacity
-                    style={styles.fab}
-                    onPress={() => navigation.navigate('Scanner')}
-                >
-                    <Ionicons name="barcode-outline" size={32} color="#FFF" />
-                </TouchableOpacity>
+                {medications.length > 0 && (
+                    <TouchableOpacity
+                        style={styles.fab}
+                        onPress={() => navigation.navigate('Scanner')}
+                    >
+                        <Ionicons name="barcode-outline" size={32} color="#FFF" />
+                    </TouchableOpacity>
+                )}
             </View>
         </SafeAreaView>
     );

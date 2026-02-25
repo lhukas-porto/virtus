@@ -36,7 +36,28 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
                 };
             }
         } catch (dbError) {
-            console.log('Error querying medication_catalog, skipping to local/api...', dbError);
+            console.log('Error querying medication_catalog...', dbError);
+        }
+
+        // 1.1 Check User Medications Catalog (Crowdsourced)
+        try {
+            const { data, error } = await supabase
+                .from('medication_user')
+                .select('*')
+                .eq('ean', gtin)
+                .maybeSingle();
+
+            if (data && !error) {
+                return {
+                    name: data.name,
+                    brand: data.brand || '',
+                    image: data.image_url || undefined,
+                    description: data.description || 'Identificado na base colaborativa Vitus.',
+                    dosage: data.dosage || undefined
+                };
+            }
+        } catch (dbError) {
+            console.log('Error querying medication_user...', dbError);
         }
 
         // 2. Core local database for guaranteed "wow" factor on common meds
@@ -82,69 +103,6 @@ export const identifyMedicineByGTIN = async (gtin: string): Promise<Identificati
 
         if (samples[gtin]) {
             return samples[gtin];
-        }
-
-        // --- THE "INTERNET SEARCH" ENGINE ---
-        // We use multiple public, CORS-friendly sources to identify the medicine dynamically
-        const sources = [
-            `https://world.openfoodfacts.org/api/v2/product/${gtin}.json`,
-            `https://world.openbeautyfacts.org/api/v2/product/${gtin}.json`,
-            `https://api.upcitemdb.com/prod/trial/lookup?upc=${gtin}`
-        ];
-
-        // Add EAN-Search API if token is configured
-        const eanSearchToken = process.env.EXPO_PUBLIC_EAN_SEARCH_TOKEN;
-        if (eanSearchToken) {
-            sources.push(`https://api.ean-search.org/api?token=${eanSearchToken}&op=barcode-lookup&ean=${gtin}&format=json`);
-        }
-
-        for (const url of sources) {
-            try {
-                const response = await fetch(url, { method: 'GET' });
-                if (response.ok) {
-                    const data = await response.json();
-
-                    // Logic for OpenFoodFacts / OpenBeautyFacts
-                    if (data.product && data.product.product_name) {
-                        const result: IdentificationResult = {
-                            name: data.product.product_name,
-                            brand: data.product.brands || '',
-                            image: data.product.image_url || undefined,
-                            description: data.product.generic_name || 'Identificado via rede mundial.'
-                        };
-                        saveToGlobalCatalog(gtin, result);
-                        return result;
-                    }
-
-                    // Logic for UPCItemDB
-                    if (data.items && data.items.length > 0) {
-                        const item = data.items[0];
-                        const result: IdentificationResult = {
-                            name: item.title,
-                            brand: item.brand || '',
-                            image: item.images && item.images.length > 0 ? item.images[0] : undefined,
-                            description: 'Encontrado em base internacional de produtos.'
-                        };
-                        saveToGlobalCatalog(gtin, result);
-                        return result;
-                    }
-
-                    // Logic for EAN-Search
-                    if (Array.isArray(data) && data.length > 0 && data[0].name) {
-                        const item = data[0];
-                        const result: IdentificationResult = {
-                            name: item.name,
-                            brand: '', // EAN-Search basic response might not split brand
-                            image: undefined, // Basic tier might not include image URL in JSON
-                            description: 'Identificado via EAN-Search API.'
-                        };
-                        saveToGlobalCatalog(gtin, result);
-                        return result;
-                    }
-                }
-            } catch (err) {
-                console.log(`Source ${url} failed, trying next...`);
-            }
         }
 
         return null;

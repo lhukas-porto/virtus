@@ -1,5 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 import { supabase } from './supabase';
 import { theme } from '../theme/theme';
 
@@ -111,9 +112,13 @@ export const generateMedicationPDF = async (
     </html>
     `;
 
-  // 4. Print to File
-  const { uri } = await Print.printToFileAsync({ html });
-
-  // 5. Share
-  await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+  // 4. Print / Share
+  if (Platform.OS === 'web') {
+    await Print.printAsync({ html });
+  } else {
+    // 4. Print to File (Native)
+    const { uri } = await Print.printToFileAsync({ html });
+    // 5. Share (Native)
+    await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+  }
 };
