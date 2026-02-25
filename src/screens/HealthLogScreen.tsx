@@ -28,8 +28,7 @@ export const HealthLogScreen = () => {
                 .from('health_measurements')
                 .select('*')
                 .eq('profile_id', session.user.id)
-                .order('measured_at', { ascending: false })
-                .limit(3);
+                .order('measured_at', { ascending: false });
 
             if (data) setHistory(data);
             if (error) throw error;
@@ -118,7 +117,11 @@ export const HealthLogScreen = () => {
                 style={{ flex: 1 }}
                 enabled={Platform.OS !== 'web'}
             >
-                <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+                <ScrollView
+                    contentContainerStyle={styles.container}
+                    showsVerticalScrollIndicator={false}
+                    style={Platform.OS === 'web' ? { flex: 1, overflowY: 'auto' } as any : { flex: 1 }}
+                >
                     <View style={styles.header}>
                         <Text style={styles.title}>Minha Saúde 🩺</Text>
                         <Text style={styles.subtitle}>Como estão seus sinais hoje?</Text>
