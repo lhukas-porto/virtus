@@ -177,17 +177,15 @@ export const HomeScreen = () => {
             if (futureTimes.length >= 8) break;
         }
 
-        if (futureTimes.length === 0) {
-            Alert.alert(
-                item.medication.name,
-                "Uso finalizado ou sem novas doses previstas para as próximas 24h."
-            );
+        const title = `Próximas Doses: ${item.medication.name}`;
+        const message = futureTimes.length === 0
+            ? "Uso finalizado ou sem novas doses previstas para as próximas 24h."
+            : `Confira seus próximos horários:\n\n${futureTimes.join('\n')}`;
+
+        if (Platform.OS === 'web') {
+            window.alert(`${title}\n\n${message}`);
         } else {
-            Alert.alert(
-                `Próximas Doses: ${item.medication.name}`,
-                `Confira seus próximos horários:\n\n${futureTimes.join('\n')}`,
-                [{ text: 'OK', style: 'default' }]
-            );
+            Alert.alert(title, message, [{ text: 'OK', style: 'default' }]);
         }
     };
 
@@ -205,25 +203,37 @@ export const HomeScreen = () => {
             if (error) throw error;
             fetchAgenda();
         } catch (e) {
-            Alert.alert('Erro', 'Falha ao registrar.');
+            if (Platform.OS === 'web') window.alert('Falha ao registrar.');
+            else Alert.alert('Erro', 'Falha ao registrar.');
         }
     };
 
     const handleDeleteReminder = async (reminderId: string) => {
-        Alert.alert('Cancelar Alarme', 'Deseja cancelar o alarme atual e todos os seguintes para este medicamento?', [
-            { text: 'Não' },
-            {
-                text: 'Sim, Cancelar',
-                style: 'destructive',
-                onPress: async () => {
-                    const { error } = await supabase.from('medication_reminders').delete().eq('id', reminderId);
-                    if (!error) {
-                        await syncNotifications();
-                        fetchAgenda();
-                    }
-                }
+        const title = 'Cancelar Alarme';
+        const message = 'Deseja cancelar o alarme atual e todos os seguintes para este medicamento?';
+
+        const performDelete = async () => {
+            const { error } = await supabase.from('medication_reminders').delete().eq('id', reminderId);
+            if (!error) {
+                await syncNotifications();
+                fetchAgenda();
             }
-        ]);
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(`${title}\n\n${message}`)) {
+                performDelete();
+            }
+        } else {
+            Alert.alert(title, message, [
+                { text: 'Não' },
+                {
+                    text: 'Sim, Cancelar',
+                    style: 'destructive',
+                    onPress: performDelete
+                }
+            ]);
+        }
     };
 
     useFocusEffect(

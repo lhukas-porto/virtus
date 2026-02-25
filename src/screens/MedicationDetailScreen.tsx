@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, StatusBar, DeviceEventEmitter } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Modal, StatusBar, DeviceEventEmitter } from 'react-native';
+import { showAlert } from '../utils/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -85,51 +86,44 @@ export const MedicationDetailScreen = () => {
     const alarmInfo = parts.length > 1 ? parts.slice(1).join(' - ') : '';
 
     const handleDeleteReminder = async (reminderId: string, timeLabel: string) => {
-        Alert.alert(
+        const performDelete = async () => {
+            const { error } = await supabase.from('medication_reminders').delete().eq('id', reminderId);
+            if (!error) {
+                setReminders(prev => prev.filter(r => r.id !== reminderId));
+                setNextDoses(prev => prev.filter(d => d.reminderId !== reminderId));
+                DeviceEventEmitter.emit('event.refreshAgenda');
+                showAlert('Sucesso', 'Alarme e sequências futuras removidos.');
+            }
+        };
+        showAlert(
             'Cancelar Alarmes',
             `Deseja cancelar o alarme de ${timeLabel} e todos os seguintes desta série?`,
             [
                 { text: 'Não' },
-                {
-                    text: 'Sim, Cancelar',
-                    style: 'destructive',
-                    onPress: async () => {
-                        const { error } = await supabase.from('medication_reminders').delete().eq('id', reminderId);
-                        if (!error) {
-                            // Update local list
-                            setReminders(prev => prev.filter(r => r.id !== reminderId));
-                            setNextDoses(prev => prev.filter(d => d.reminderId !== reminderId));
-                            DeviceEventEmitter.emit('event.refreshAgenda');
-                            Alert.alert('Sucesso', 'Alarme e sequências futuras removidos.');
-                        }
-                    }
-                }
+                { text: 'Sim, Cancelar', style: 'destructive', onPress: performDelete }
             ]
         );
     };
 
     const handleDelete = () => {
-        Alert.alert(
+        const performDelete = async () => {
+            try {
+                const { error } = await supabase
+                    .from('medications')
+                    .delete()
+                    .eq('id', med.id);
+                if (error) throw error;
+                navigation.goBack();
+            } catch (e: any) {
+                showAlert('Erro', 'Não foi possível remover o medicamento.');
+            }
+        };
+        showAlert(
             'Remover Medicamento',
             `Deseja realmente remover ${med.name}?`,
             [
                 { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Remover',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase
-                                .from('medications')
-                                .delete()
-                                .eq('id', med.id);
-                            if (error) throw error;
-                            navigation.goBack();
-                        } catch (e: any) {
-                            Alert.alert('Erro', 'Não foi possível remover o medicamento.');
-                        }
-                    }
-                }
+                { text: 'Remover', style: 'destructive', onPress: performDelete }
             ]
         );
     };

@@ -83,25 +83,31 @@ export const HealthLogScreen = () => {
 
     const handleGenerateReport = async () => {
         if (history.length === 0) {
-            Alert.alert('Sem dados', 'Você precisa de pelo menos um registro para gerar o relatório.');
+            const msg = 'Você precisa de pelo menos um registro para gerar o relatório.';
+            if (Platform.OS === 'web') window.alert(msg);
+            else Alert.alert('Sem dados', msg);
             return;
         }
         try {
             await generateHealthReport(userName, history);
         } catch (e) {
-            Alert.alert('Erro', 'Não foi possível gerar o PDF.');
+            if (Platform.OS === 'web') window.alert('Não foi possível gerar o PDF.');
+            else Alert.alert('Erro', 'Não foi possível gerar o PDF.');
         }
     };
 
     const handleExportCSV = async () => {
         if (history.length === 0) {
-            Alert.alert('Sem dados', 'Você precisa de pelo menos um registro para exportar.');
+            const msg = 'Você precisa de pelo menos um registro para exportar.';
+            if (Platform.OS === 'web') window.alert(msg);
+            else Alert.alert('Sem dados', msg);
             return;
         }
         try {
             await exportHealthCSV(history);
         } catch (e) {
-            Alert.alert('Erro', 'Não foi possível exportar os dados.');
+            if (Platform.OS === 'web') window.alert('Não foi possível exportar os dados.');
+            else Alert.alert('Erro', 'Não foi possível exportar os dados.');
         }
     };
 

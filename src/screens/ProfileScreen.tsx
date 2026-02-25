@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, Platform, Image, TextInput, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image, TextInput, ActivityIndicator, Linking } from 'react-native';
+import { showAlert } from '../utils/alert';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { theme } from '../theme/theme';
@@ -35,7 +36,12 @@ export const ProfileScreen = () => {
 
     const handlePickImage = () => {
         if (!isEditing) return;
-        Alert.alert(
+        if (Platform.OS === 'web') {
+            // Camera not available on web — go straight to gallery
+            openGallery();
+            return;
+        }
+        showAlert(
             "Alterar Foto",
             "Selecione a origem da imagem:",
             [
@@ -49,7 +55,7 @@ export const ProfileScreen = () => {
     const openCamera = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera para tirar fotos.');
+            showAlert('Permissão necessária', 'Precisamos de acesso à câmera para tirar fotos.');
             return;
         }
 
@@ -120,7 +126,7 @@ export const ProfileScreen = () => {
                 );
                 setAvatar(`data:image/jpeg;base64,${manipResult.base64}`);
             } catch (e) {
-                Alert.alert('Aviso', 'Não foi possível salvar a imagem.');
+                showAlert('Aviso', 'Não foi possível salvar a imagem.');
             }
         }
     };
@@ -160,17 +166,17 @@ export const ProfileScreen = () => {
 
             if (error) throw error;
 
-            Alert.alert('Sucesso', 'Perfil atualizado!');
+            showAlert('Sucesso', 'Perfil atualizado!');
             setIsEditing(false);
         } catch (error: any) {
-            Alert.alert('Erro', error.message);
+            showAlert('Erro', error.message);
         } finally {
             setLoading(false);
         }
     };
 
     const handleSupport = () => {
-        Alert.alert(
+        showAlert(
             "Ajuda e Suporte",
             "Como você gostaria de falar conosco?",
             [
@@ -186,8 +192,8 @@ export const ProfileScreen = () => {
                         const phone = "5561996272630";
                         const msg = "Estou precisando de suporte";
                         const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-                        Linking.openURL(url).catch((err) => {
-                            Alert.alert("Erro", "Não foi possível abrir o WhatsApp.");
+                        Linking.openURL(url).catch(() => {
+                            showAlert("Erro", "Não foi possível abrir o WhatsApp.");
                         });
                     }
                 },
@@ -209,7 +215,7 @@ export const ProfileScreen = () => {
             return;
         }
 
-        Alert.alert(
+        showAlert(
             "Sair",
             "Deseja realmente sair da sua conta?",
             [
@@ -219,7 +225,7 @@ export const ProfileScreen = () => {
                     style: "destructive",
                     onPress: async () => {
                         const { error } = await supabase.auth.signOut();
-                        if (error) Alert.alert("Erro", error.message);
+                        if (error) showAlert("Erro", error.message);
                     }
                 }
             ]

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, ActivityIndicator, DeviceEventEmitter } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, ActivityIndicator, DeviceEventEmitter, Platform } from 'react-native';
+import { showAlert } from '../utils/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabase';
@@ -94,7 +95,7 @@ export const AlarmConfigScreen = () => {
                 if (error) throw error;
 
                 if (!data || data.length === 0) {
-                    Alert.alert('Erro', 'Registro original não encontrado. A atualização falhou.');
+                    showAlert('Erro', 'Registro original não encontrado. A atualização falhou.');
                     return;
                 }
             } else {
@@ -116,7 +117,7 @@ export const AlarmConfigScreen = () => {
             // Sync all notifications (safe approach)
             await syncNotifications();
 
-            Alert.alert('Sucesso', 'Alarme salvo!', [
+            showAlert('Sucesso', 'Alarme salvo!', [
                 {
                     text: 'OK',
                     onPress: () => {
@@ -131,7 +132,7 @@ export const AlarmConfigScreen = () => {
 
         } catch (error: any) {
             console.error(error);
-            Alert.alert('Erro', 'Falha ao salvar alarme.');
+            showAlert('Erro', 'Falha ao salvar alarme.');
         } finally {
             setLoading(false);
         }
@@ -161,7 +162,7 @@ export const AlarmConfigScreen = () => {
 
             await syncNotifications();
 
-            Alert.alert('Sucesso', 'Horários atualizados daqui para frente!', [
+            showAlert('Sucesso', 'Horários atualizados daqui para frente!', [
                 {
                     text: 'OK',
                     onPress: () => {
@@ -175,7 +176,7 @@ export const AlarmConfigScreen = () => {
             ]);
         } catch (error) {
             console.error(error);
-            Alert.alert('Erro', 'Falha ao atualizar horários.');
+            showAlert('Erro', 'Falha ao atualizar horários.');
         } finally {
             setLoading(false);
         }
@@ -183,31 +184,36 @@ export const AlarmConfigScreen = () => {
 
     const handleSaveAlarm = async () => {
         if (!startTime || startTime.length < 5) {
-            Alert.alert('Ops', 'Informe um horário válido (HH:MM).');
+            showAlert('Ops', 'Informe um horário válido (HH:MM).');
             return;
         }
 
         if (selectedFreq <= 0) {
-            Alert.alert('Ops', 'Informe uma frequência maior que zero.');
+            showAlert('Ops', 'Informe uma frequência maior que zero.');
             return;
         }
 
         if (isEditing) {
-            Alert.alert(
-                'Editar Alarme',
-                'Deseja aplicar esta nova hora para este evento e todos os próximos horários da série?',
-                [
-                    {
-                        text: 'Sim, aplicar para todos',
-                        onPress: performSaveOnlyFuture
-                    },
-                    {
-                        text: 'Apenas salvar como padrão',
-                        onPress: performSave
-                    },
-                    { text: 'Cancelar', style: 'cancel' }
-                ]
-            );
+            if (Platform.OS === 'web') {
+                // On web, simplified: just apply to all future
+                performSaveOnlyFuture();
+            } else {
+                showAlert(
+                    'Editar Alarme',
+                    'Deseja aplicar esta nova hora para este evento e todos os próximos horários da série?',
+                    [
+                        {
+                            text: 'Sim, aplicar para todos',
+                            onPress: performSaveOnlyFuture
+                        },
+                        {
+                            text: 'Apenas salvar como padrão',
+                            onPress: performSave
+                        },
+                        { text: 'Cancelar', style: 'cancel' }
+                    ]
+                );
+            }
         } else {
             performSave();
         }
