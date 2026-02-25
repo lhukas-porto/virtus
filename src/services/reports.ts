@@ -3,6 +3,9 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { theme } from '../theme/theme';
 
+// Logo da Vitus em Base64 para uso nos relatórios PDF
+const LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAc0AAADNCAYAAADaMiupAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAIMjSURBVHhe7b33exVHura/fw/uc+8ZgwQS4PHMme/M+PjM2CZKW1nknHMyzjlnexzGaWwDCltZIoPBxgQb44wTYBwwGJNzMBmEEsqf+6xVXd3V1b2lLSGwQfXD+0jaodNu1btX1apV/6e+vh4Gg8FgMBga5//oDxgMBoPBYPDHSNNgMBgMhjAx0jQYDAaDIUyMNA0Gg8FgCBMjTYPBYDAYwsRI02AwGAyGMDHSNBgMBoMhTIw0DQaDwWAIEyNNg8FgMBjCxEjTYDAYDIYwMdI0GAwGgyFMjDQNBoPBYAgTI02DwWAwGMLESNNgMBgMhjAx0jQYDAaDIUyMNA0Gg8FgCBMjTYPBYDAYwsRI02AwGAyGMDHSNBgMBoMhTIw0DQaDwWAIEyNNg8FgMBjCxEjTYDAYDIYwMdI0GAwGgyFMjDQNBoPBYAgTI02DwWAwGMLESNNgMBgMhjAx0jQYDAaDIUyMNA0Gg8FgCBMjTYPBYDAYwsRI02AwGAyGMDHSNBgMBoMhTIw0DQaDwWAIEyNNg8FgMBjCxEjTYDAYDIYwMdI0GAwGgyFMjDQNBoPBYAgTI02DwWAwGMLESNNgMBgMhjAx0jQYDAaDIUyMNA0Gg8FgCBMjTYPBYDAYwsRI02AwGAyGMDHSNBgMBoMhTIw0DQaDwWAIEyNNA0Gg8FgCJP/q6+vh8FgMBgMBn+MNA0Gg8FgCBMjTYPBYDAYwsRI02AwGAyGMDHSNBgMBoMhTIw0DQaDwWAIEyNNg8FgMBjCxEjTYDAYDIYwMdI0GAwGgyFMjDQNBoPBYAgTI02DwWAwGMLESNNgMBgMhjAx0jQYDAaDIUyMNA0Gg8FgCBMjTYPBYDAYwsRI02AwGAyGMDHSNBgMBoMhTIw0DQaDwWAIEyNNg8FgMBjCxEjTYDAYDIYwMdI0GAwGgyFMjDQNBoPBYAgTI02DwWAwGMLESNNgMBgMhjAx0jQYDAaDIUyMNA0Gg8FgCBMjTYPBYDAYwsRI02AwGAyGMDHSNBgMBoMhTIw0DQaDwWAIEyNNg8FgMBjCxEjTYDAYDIYwMdI02DQYDAaDIWyMNA0Gg8FgCBMjTYPBYDAYwsRI02AwGAyGMDHSNBgMBoMhTIw0DQaDwWAIEyNNg8FgMBjCxEjTYDAYDIYwMdI0GAwGgyFMjDQNBoPBYAgTI02DwWAwGMLESNNgMBgMhjAx0jQYDAaDIUyMNA0Gg8FgCBMjTYPBYDAYwsRI02AwGAyGMDHSNBgMBoMhTIw0DQaDwWAIEyNNg8FgMBjCxEjTYDAYDAajTYxQWlaRZqRpMBgMBoPBYDAYDAbDxf8B7a7J9A==';
+
 export const generateHealthReport = async (userName: string, measurements: any[]) => {
     const html = `
         <html>
@@ -10,8 +13,8 @@ export const generateHealthReport = async (userName: string, measurements: any[]
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
                 <style>
                     body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: ${theme.colors.text}; }
-                    h1 { color: ${theme.colors.primary}; font-size: 28px; border-bottom: 2px solid ${theme.colors.primary}; padding-bottom: 10px; }
-                    .header { margin-bottom: 30px; }
+                    .header { margin-bottom: 30px; border-bottom: 2px solid ${theme.colors.primary}; padding-bottom: 16px; display: flex; align-items: center; }
+                    .logo { height: 54px; }
                     .patient-info { margin-bottom: 20px; font-size: 16px; }
                     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
                     th { background-color: ${theme.colors.primary}; color: white; padding: 12px; text-align: left; }
@@ -23,11 +26,11 @@ export const generateHealthReport = async (userName: string, measurements: any[]
             </head>
             <body>
                 <div class="header">
-                    <h1>Relatório de Saúde - Vitus 🌿</h1>
-                    <div class="patient-info">
-                        <p><strong>Paciente:</strong> ${userName}</p>
-                        <p><strong>Data de Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-                    </div>
+                    <img src="${LOGO_BASE64}" class="logo" alt="Vitus" />
+                </div>
+                <div class="patient-info">
+                    <p><strong>Paciente:</strong> ${userName}</p>
+                    <p><strong>Data de Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
                 </div>
                 
                 <table>
