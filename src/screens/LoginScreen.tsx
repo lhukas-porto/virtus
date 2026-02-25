@@ -42,7 +42,8 @@ export const LoginScreen = () => {
 
     const confirmSignUp = async () => {
         if (!tempName.trim()) {
-            Alert.alert('Ops!', 'Precisamos de um nome para continuar.');
+            if (Platform.OS === 'web') window.alert('Precisamos de um nome para continuar.');
+            else Alert.alert('Ops!', 'Precisamos de um nome para continuar.');
             return;
         }
 

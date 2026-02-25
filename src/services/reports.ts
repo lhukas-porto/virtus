@@ -1,6 +1,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 import { theme } from '../theme/theme';
 
 // Logo da Vitus em Base64 para uso nos relatórios PDF
@@ -60,6 +61,14 @@ export const generateHealthReport = async (userName: string, measurements: any[]
         </html>
     `;
 
+    // Web: open the report HTML in a new browser tab (printing from there)
+    if (Platform.OS === 'web') {
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        return;
+    }
+
     try {
         const { uri } = await Print.printToFileAsync({ html });
         await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
@@ -78,8 +87,22 @@ export const exportHealthCSV = async (measurements: any[]) => {
 
     const csvContent = header + rows;
     const fileName = `vitus_saude_${new Date().getTime()}.csv`;
-    const filePath = `${FileSystem.cacheDirectory}${fileName}`;
 
+    // Web: trigger a browser download directly
+    if (Platform.OS === 'web') {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return;
+    }
+
+    const filePath = `${FileSystem.cacheDirectory}${fileName}`;
     try {
         await FileSystem.writeAsStringAsync(filePath, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
         await Sharing.shareAsync(filePath, { mimeType: 'text/csv', dialogTitle: 'Exportar Dados de Saúde' });

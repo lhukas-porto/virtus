@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../services/supabase';
 import { theme } from '../theme/theme';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 interface FiringAlarm {
     id: string;
     medName: string;
@@ -11,87 +14,89 @@ interface FiringAlarm {
     dosage?: string;
 }
 
-const CHECK_INTERVAL_MS = 30_000; // check every 30 s
+const CHECK_INTERVAL_MS = 30_000; // 30 seconds
 
 // ---------------------------------------------------------------------------
-// Web Audio API — alarm beep (no external file needed)
+// Web Audio API beep (no external file needed)
 // ---------------------------------------------------------------------------
-function createAlarmSound(): { start: () => void; stop: () => void } | null {
-    if (typeof window === 'undefined' || !window.AudioContext) return null;
+function playAlarmBeep(): () => void {
+    try {
+        const AudioCtxClass =
+            (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!AudioCtxClass) return () => { };
 
-    let ctx: AudioContext | null = null;
-    let oscillator: OscillatorNode | null = null;
-    let gainNode: GainNode | null = null;
-    let intervalId: ReturnType<typeof setInterval> | null = null;
-    let running = false;
+        const ctx: AudioContext = new AudioCtxClass();
+        let active = true;
 
-    const beep = (freq: number, durationMs: number) => {
-        if (!ctx) return;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.6, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationMs / 1000);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + durationMs / 1000);
-    };
+        const beep = (freq: number, startSec: number, durSec: number) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, ctx.currentTime + startSec);
+            gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + startSec + 0.02);
+            gain.gain.setValueAtTime(0.5, ctx.currentTime + startSec + durSec - 0.05);
+            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + startSec + durSec);
+            osc.start(ctx.currentTime + startSec);
+            osc.stop(ctx.currentTime + startSec + durSec);
+        };
 
-    const playPattern = () => {
-        if (!ctx || !running) return;
-        beep(880, 200);
-        setTimeout(() => { if (running) beep(880, 200); }, 280);
-        setTimeout(() => { if (running) beep(1100, 400); }, 600);
-    };
+        const pattern = () => {
+            if (!active) return;
+            // beep-beep ... longer beep
+            beep(880, 0.00, 0.15);
+            beep(880, 0.25, 0.15);
+            beep(1100, 0.55, 0.40);
+        };
 
-    return {
-        start: () => {
-            try {
-                ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                running = true;
-                playPattern();
-                intervalId = setInterval(playPattern, 1800);
-            } catch (e) {
-                console.warn('WebAlarmBanner: audio failed', e);
-            }
-        },
-        stop: () => {
-            running = false;
-            if (intervalId) { clearInterval(intervalId); intervalId = null; }
-            if (ctx) { ctx.close(); ctx = null; }
-        },
-    };
+        pattern();
+        const intervalId = setInterval(() => { if (active) pattern(); }, 1800);
+
+        return () => {
+            active = false;
+            clearInterval(intervalId);
+            try { ctx.close(); } catch (_) { }
+        };
+    } catch (e) {
+        console.warn('WebAlarmBanner: audio init failed', e);
+        return () => { };
+    }
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// Inner modal — all hooks live here (no early returns before hooks!)
 // ---------------------------------------------------------------------------
-export const WebAlarmBanner = () => {
-    if (Platform.OS !== 'web') return null;
-
+const WebAlarmModal = () => {
     const [queue, setQueue] = useState<FiringAlarm[]>([]);
     const [visible, setVisible] = useState(false);
 
-    // Animation values
-    const scaleAnim = useRef(new Animated.Value(0.8)).current;
+    const scaleAnim = useRef(new Animated.Value(0.85)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
-    const soundRef = useRef<ReturnType<typeof createAlarmSound>>(null);
+    const stopSoundRef = useRef<(() => void) | null>(null);
+    const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // ---------- Key helpers ----------
-    const firedKey = (reminderId: string, slotH: number) =>
-        `vitus_alarm_fired_${reminderId}_${slotH}`;
+    // ---------- Helpers ----------
+    const firedKey = (reminderId: string, slotH: number, slotM: number) =>
+        `vitus_alarm_${reminderId}_${slotH}_${slotM}`;
 
-    // ---------- Poll alarms ----------
+    // ---------- Poll ----------
     const checkAlarms = useCallback(async () => {
         try {
             const { data: reminders, error } = await supabase
                 .from('medication_reminders')
-                .select(`id, reminder_time, frequency_hours, dosage_quantity, dosage_unit, medications ( name )`);
+                .select(`
+                    id,
+                    reminder_time,
+                    frequency_hours,
+                    dosage_quantity,
+                    dosage_unit,
+                    medications ( name )
+                `);
 
             if (error || !reminders) return;
 
@@ -101,7 +106,9 @@ export const WebAlarmBanner = () => {
             const firing: FiringAlarm[] = [];
 
             for (const rem of reminders) {
-                const [bH, bM] = rem.reminder_time.slice(0, 5).split(':').map(Number);
+                const parts = rem.reminder_time.slice(0, 5).split(':').map(Number);
+                const bH = parts[0];
+                const bM = parts[1];
                 const freq = rem.frequency_hours || 24;
                 const cycles = Math.floor(24 / freq);
                 const medName = (rem.medications as any)?.name || 'Medicamento';
@@ -112,7 +119,7 @@ export const WebAlarmBanner = () => {
                 for (let i = 0; i < cycles; i++) {
                     const slotH = (bH + i * freq) % 24;
                     if (slotH === nowH && bM === nowM) {
-                        const key = firedKey(rem.id, slotH);
+                        const key = firedKey(rem.id, slotH, bM);
                         if (!sessionStorage.getItem(key)) {
                             sessionStorage.setItem(key, '1');
                             firing.push({
@@ -134,80 +141,100 @@ export const WebAlarmBanner = () => {
         }
     }, []);
 
-    // ---------- Show modal when queue gets items ----------
+    // ---------- Show modal when new alarms arrive ----------
     useEffect(() => {
         if (queue.length > 0 && !visible) {
+            // Reset animations
+            scaleAnim.setValue(0.85);
+            opacityAnim.setValue(0);
+
             setVisible(true);
+
             // Animate in
             Animated.parallel([
-                Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }),
-                Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+                Animated.spring(scaleAnim, {
+                    toValue: 1,
+                    useNativeDriver: true,
+                    tension: 60,
+                    friction: 8,
+                }),
+                Animated.timing(opacityAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
             ]).start();
-            // Start pulse loop
-            startPulse();
-            // Start sound
-            soundRef.current = createAlarmSound();
-            soundRef.current?.start();
-        }
-    }, [queue.length]);
 
-    const startPulse = () => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseAnim, { toValue: 1.08, duration: 600, useNativeDriver: true }),
-                Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-            ])
-        ).start();
-    };
+            // Pulse loop
+            pulseLoop.current = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, {
+                        toValue: 1.12,
+                        duration: 500,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(pulseAnim, {
+                        toValue: 1,
+                        duration: 500,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+            pulseLoop.current.start();
+
+            // Sound
+            stopSoundRef.current = playAlarmBeep();
+        }
+    }, [queue.length, visible]);
 
     // ---------- Dismiss ----------
-    const dismiss = () => {
-        soundRef.current?.stop();
-        pulseAnim.stopAnimation();
+    const dismiss = useCallback(() => {
+        // Stop sound & pulse
+        if (stopSoundRef.current) stopSoundRef.current();
+        if (pulseLoop.current) pulseLoop.current.stop();
 
+        // Animate out
         Animated.parallel([
-            Animated.spring(scaleAnim, { toValue: 0.8, useNativeDriver: true, tension: 60, friction: 8 }),
-            Animated.timing(opacityAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+            Animated.timing(scaleAnim, {
+                toValue: 0.85,
+                duration: 250,
+                useNativeDriver: true,
+            }),
+            Animated.timing(opacityAnim, {
+                toValue: 0,
+                duration: 250,
+                useNativeDriver: true,
+            }),
         ]).start(() => {
             setVisible(false);
-            setQueue(prev => {
-                const next = prev.slice(1);
-                if (next.length > 0) {
-                    // Show next alarm after short pause
-                    setTimeout(() => {
-                        setQueue(next); // trigger re-render → useEffect fires again
-                        scaleAnim.setValue(0.8);
-                        opacityAnim.setValue(0);
-                    }, 400);
-                    return [];
-                }
-                return [];
-            });
+            // Remove current alarm from queue — next one will be shown via useEffect
+            setQueue(prev => prev.slice(1));
         });
-    };
+    }, [scaleAnim, opacityAnim]);
 
-    // ---------- Poll setup ----------
+    // ---------- Timer ----------
     useEffect(() => {
-        const initial = setTimeout(checkAlarms, 3000);
+        // First check shortly after mount
+        const initial = setTimeout(checkAlarms, 2000);
         timerRef.current = setInterval(checkAlarms, CHECK_INTERVAL_MS);
+
         return () => {
             clearTimeout(initial);
             if (timerRef.current) clearInterval(timerRef.current);
-            soundRef.current?.stop();
+            if (stopSoundRef.current) stopSoundRef.current();
         };
     }, [checkAlarms]);
 
+    // Nothing to show
     if (!visible || queue.length === 0) return null;
 
     const current = queue[0];
 
     return (
-        // Full-screen overlay
         <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
-            {/* Modal card */}
             <Animated.View style={[styles.modal, { transform: [{ scale: scaleAnim }] }]}>
 
-                {/* Pulsing alarm icon */}
+                {/* Pulsing icon */}
                 <Animated.View style={[styles.iconCircle, { transform: [{ scale: pulseAnim }] }]}>
                     <Ionicons name="alarm" size={56} color="#fff" />
                 </Animated.View>
@@ -225,17 +252,26 @@ export const WebAlarmBanner = () => {
                 <Text style={styles.timeLarge}>{current.timeLabel}</Text>
 
                 {queue.length > 1 && (
-                    <Text style={styles.moreLabel}>+{queue.length - 1} alarme(s) aguardando</Text>
+                    <Text style={styles.moreLabel}>
+                        +{queue.length - 1} alarme(s) aguardando
+                    </Text>
                 )}
 
-                {/* Action buttons */}
                 <View style={styles.actions}>
-                    <TouchableOpacity style={styles.btnTaken} onPress={dismiss} activeOpacity={0.8}>
+                    <TouchableOpacity
+                        style={styles.btnTaken}
+                        onPress={dismiss}
+                        activeOpacity={0.8}
+                    >
                         <Ionicons name="checkmark-circle" size={22} color="#fff" />
                         <Text style={styles.btnTakenText}>JÁ TOMEI ✅</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.btnSnooze} onPress={dismiss} activeOpacity={0.8}>
+                    <TouchableOpacity
+                        style={styles.btnSnooze}
+                        onPress={dismiss}
+                        activeOpacity={0.8}
+                    >
                         <Ionicons name="alarm-outline" size={20} color={theme.colors.primary} />
                         <Text style={styles.btnSnoozeText}>DISPENSAR</Text>
                     </TouchableOpacity>
@@ -245,10 +281,27 @@ export const WebAlarmBanner = () => {
     );
 };
 
+// ---------------------------------------------------------------------------
+// Public export — renders nothing on native (guard is OUTSIDE the component
+// with hooks, avoiding the React Rules of Hooks violation)
+// ---------------------------------------------------------------------------
+export const WebAlarmBanner = () => {
+    // Platform guard at the OUTER wrapper — inner component always mounts with
+    // all hooks called unconditionally.
+    if (Platform.OS !== 'web') return null;
+    return <WebAlarmModal />;
+};
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
     overlay: {
         position: 'fixed' as any,
-        top: 0, left: 0, right: 0, bottom: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         backgroundColor: 'rgba(0,0,0,0.65)',
         zIndex: 99999,
         justifyContent: 'center',
@@ -300,7 +353,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: theme.colors.primary + '15',
+        backgroundColor: theme.colors.primary + '18',
         borderRadius: 20,
         paddingHorizontal: 14,
         paddingVertical: 6,
@@ -312,10 +365,10 @@ const styles = StyleSheet.create({
         color: theme.colors.primary,
     },
     timeLarge: {
-        fontSize: 48,
+        fontSize: 52,
         fontFamily: theme.fonts.heading,
         color: theme.colors.text,
-        letterSpacing: 2,
+        letterSpacing: 3,
         marginBottom: 8,
     },
     moreLabel: {

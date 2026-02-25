@@ -37,6 +37,8 @@ export const AlarmOverlay = () => {
     }, [session]);
 
     useEffect(() => {
+        if (Platform.OS === 'web') return; // expo-notifications/expo-av not supported on web
+
         // Configure audio to play even in silent mode
         Audio.setAudioModeAsync({
             allowsRecordingIOS: false,

@@ -176,6 +176,13 @@ export const ProfileScreen = () => {
     };
 
     const handleSupport = () => {
+        if (Platform.OS === 'web') {
+            // On web, window.confirm can't handle 3 options — open WhatsApp directly
+            const phoneNum = "5561996272630";
+            const msg = "Estou precisando de suporte com o app Vitus";
+            window.open(`https://wa.me/${phoneNum}?text=${encodeURIComponent(msg)}`, '_blank');
+            return;
+        }
         showAlert(
             "Ajuda e Suporte",
             "Como você gostaria de falar conosco?",

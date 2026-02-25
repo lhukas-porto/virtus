@@ -52,7 +52,8 @@ export const MedicationListScreen = () => {
                 if (error) throw error;
                 fetchMedications();
             } catch (e: any) {
-                Alert.alert('Erro', 'Não foi possível remover o medicamento.');
+                if (Platform.OS === 'web') window.alert('Não foi possível remover o medicamento.');
+                else Alert.alert('Erro', 'Não foi possível remover o medicamento.');
             }
         };
 
