@@ -4,13 +4,11 @@ import { Platform } from 'react-native';
 import { supabase } from './supabase';
 import { theme } from '../theme/theme';
 
-export const generateMedicationPDF = async (
+export const getMedicationHTML = async (
   userName: string,
   periodStart: Date,
   periodEnd: Date
 ) => {
-  // 1. Fetch Data
-  // Ajustar datas para cobrir o dia inteiro
   const start = new Date(periodStart);
   start.setHours(0, 0, 0, 0);
 
@@ -33,28 +31,25 @@ export const generateMedicationPDF = async (
     throw new Error("Nenhum registro encontrado neste período.");
   }
 
-  // 2. Statistics
   const totalEntries = logs.length;
-  // Falta saber total agendado para calcular % de adesão real, mas requer query complexa de reminders
-  // Por enquanto, relatório de "O que foi tomado".
 
-  // 3. Generate HTML
-  const html = `
+  return `
     <html>
       <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          body { font-family: 'Helvetica', sans-serif; padding: 40px; color: #333; }
+          body { font-family: 'Helvetica', sans-serif; padding: 20px; color: #333; }
           .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid ${theme.colors.primary}; padding-bottom: 20px; margin-bottom: 30px; }
           .logo { font-size: 32px; font-weight: bold; color: ${theme.colors.primary}; }
           .info { margin-bottom: 20px; font-size: 14px; }
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+          th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 12px; }
           th { background-color: ${theme.colors.primary}; color: white; font-weight: bold; }
           tr:nth-child(even) { background-color: #f9f9f9; }
-          .taken { color: #2E7D32; font-weight: bold; }
-          .badge { padding: 4px 8px; border-radius: 4px; background: #E8F5E9; color: #2E7D32; display: inline-block; }
+          .badge { padding: 4px 8px; border-radius: 4px; background: #E8F5E9; color: #2E7D32; display: inline-block; font-size: 10px; font-weight: bold; }
           .footer { margin-top: 50px; font-size: 10px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 10px; }
+          .summary { background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 30px; }
         </style>
       </head>
       <body>
@@ -69,7 +64,7 @@ export const generateMedicationPDF = async (
             <p><strong>Data de Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
         </div>
 
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 30px;">
+        <div class="summary">
             <h3 style="margin: 0 0 10px 0;">Resumo</h3>
             <p style="margin: 0;">Total de doses registradas: <strong>${totalEntries}</strong></p>
         </div>
@@ -88,11 +83,6 @@ export const generateMedicationPDF = async (
           <tbody>
           ${logs.map(log => {
     const dateObj = new Date(log.taken_at);
-    // Ajustar fuso horário visualmente se necessário, mas toLocaleString deve lidar com locale do device se o engine JS permitir
-    // Print usa webview headless, fuso pode ser UTC.
-    // Melhor formatar manualmente ou garantir timezone.
-    // toLocaleString('pt-BR') costuma funcionar.
-
     return `
             <tr>
               <td>${dateObj.toLocaleDateString('pt-BR')}</td>
@@ -111,6 +101,15 @@ export const generateMedicationPDF = async (
       </body>
     </html>
     `;
+};
+
+export const generateMedicationPDF = async (
+  userName: string,
+  periodStart: Date,
+  periodEnd: Date
+) => {
+  const html = await getMedicationHTML(userName, periodStart, periodEnd);
+
 
   // 4. Print / Share
   if (Platform.OS === 'web') {

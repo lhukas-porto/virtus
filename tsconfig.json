@@ -9,7 +9,7 @@
             "DOM",
             "ESNext"
         ],
-        "moduleResolution": "node",
+        "moduleResolution": "bundler",
         "noEmit": true,
         "strict": true,
         "target": "ESNext",
@@ -22,5 +22,10 @@
         "skipLibCheck": true,
         "resolveJsonModule": true
     },
-    "extends": "expo/tsconfig.base"
+    "extends": "expo/tsconfig.base",
+    "exclude": [
+        "node_modules",
+        "shark-method",
+        "src/app"
+    ]
 }

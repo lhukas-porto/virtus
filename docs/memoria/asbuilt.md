@@ -1,18 +1,78 @@
-# ASBUILT - ARQUITETURA VITUS 🔥
+# PROJETO VITUS 🩺🌿 - ASBUILT OFICIAL
 
-## 📦 STACK TÉCNICA
-* **Frontend:** React Native com Expo SDK.
-* **Backend:** Supabase (Auth, Database, Storage).
-* **Banco de Dados:** PostgreSQL via Supabase.
-* **Biblioteca Excel:** `xlsx` para geração de planilhas.
+**Descrição:** Assistente de saúde mobile focado em idosos, com scanner inteligente de medicamentos, alarmes automatizados e diário de sinais vitais. Design "Natureza Viva" focado em acessibilidade extrema e minimalismo.
 
-## 💾 DATA SCHEMA
-* **table profiles:** `id, email, full_name, created_at`
-* **table medications:** `id, user_id, name, dosage, barcode, image_url, time, frequency`
-* **table health_logs:** `id, user_id, systolic, diastolic, heart_rate, created_at`
+**Stack Técnica:** Expo SDK 54, React 19, React Native 0.81, TypeScript, Supabase (Auth + DB), React Navigation.
 
-## 🚀 ROADMAP DE EXECUÇÃO
-1. **Fase 1:** Setup Supabase e Autenticação.
-2. **Fase 2:** Scanner de Barcode e Integração com API de medicamentos.
-3. **Fase 3:** Sistema de Agendamento de Alarmes Locais.
-4. **Fase 4:** Dashboard de Saúde e Exportação Excel.
+**Última atualização:** 25/02/2026 17:15
+**Status Geral:** 🛡️ CORE ESTABILIZADO (V1.0)
+**Regra de Ouro:** As fases 01 a 05 estão em estado "Frozen". Nenhuma modificação deve ser feita no núcleo funcional atual sem validação explícita.
+
+---
+
+## 🏗️ ROADMAP DE IMPLEMENTAÇÃO (ESTABILIZADO)
+
+### 🔵 FASE 01: FUNDAÇÃO E ESTRUTURA
+**Status:** `✅ CONCLUÍDA & PROTEGIDA`
+- [x] Configuração do Ambiente (.env + Supabase Client)
+- [x] Definição do Schema de Banco de Dados (Profiles, Medications, Reminders, Logs)
+- [x] Setup de Navegação (Tab Navigation Customizada e Responsiva)
+- [x] Implementação de Login/Cadastro (Natureza Viva style) com persistência de Perfil
+
+---
+
+### 🟢 FASE 02: DIÁRIO DE SAÚDE E SINAIS VITAIS
+**Status:** `✅ CONCLUÍDA & PROTEGIDA`
+- [x] Tela Home Minimalista (Agenda Inteligente)
+- [x] Fluxo de Registro de Pressão/Batimentos (Telas + DB)
+- [x] Histórico de Saúde integrado com visualização cronológica
+
+---
+
+### 🟡 FASE 03: LUPA MÁGICA (INTELIGÊNCIA VISUAL)
+**Status:** `✅ CONCLUÍDA & PROTEGIDA`
+- [x] Scanner de Código de Barras Inteligente (EAN-Search API)
+- [x] Reconhecimento Automático de Medicamentos (Nome, Marca, Foto)
+- [x] Sistema de Upload de Fotos (Compatível com Mobile e Web)
+- [x] Link direto para Bula Digital da ANVISA
+
+---
+
+### 🟠 FASE 04: NOTIFICAÇÕES E ARMARIO DIGITAL
+**Status:** `✅ CONCLUÍDA & PROTEGIDA`
+- [x] Sistema de Agendamento Flexível (Horários customizáveis e frequências em horas)
+- [x] Próximas 5 Doses visíveis no detalhamento do medicamento
+- [x] Fluxo de Exclusão de Séries de Alarmes (Mesma dinâmica para agenda e farmácia)
+- [x] Persistência de Histórico de Tomada de Medicamentos
+
+---
+
+### 🔴 FASE 05: COMPATIBILIDADE E RELATÓRIOS
+**Status:** `✅ CONCLUÍDA & PROTEGIDA`
+- [x] Geração de PDF (Relatório de Medicamentos)
+- [x] Suporte Web Total (Blindagem de notificações, Upload de Blobs, Print Direto)
+- [x] Agenda "Clean": Filtro estrito para o dia atual e ocultação inteligente de itens
+- [x] Polimento de UX (HitSlops, Animações Spring na barra de tarefas)
+
+---
+
+## 🚀 ROADMAP FUTURO (FASE 06+)
+
+### 🟣 FASE 06: EVOLUÇÃO E CONECTIVIDADE (EM PLANEJAMENTO)
+- [ ] **Family Link:** Compartilhamento de agenda com cuidadores/familiares.
+- [ ] **Gamificação Vitus:** Sistema de conquistas e streaks para incentivar a adesão.
+- [ ] **IA de Acompanhamento:** Chatbot simples para tirar dúvidas sobre horários e sintomas.
+- [ ] **Dark Mode Natureza:** Vibe noturna inspirada em florestas ao luar.
+
+---
+
+## 💾 DATA SCHEMA (OFICIAL)
+* **profiles:** Perfil do usuário e configurações.
+* **medications:** Inventário de remédios escaneados.
+* **reminders:** Horários e séries de alarmes vinculados.
+* **health_logs:** Registros de sinais vitais (pressão, batimentos).
+* **medication_history:** Log de doses tomadas/puladas.
+
+---
+
+**Última Atualização por:** SHIVA (Especialista em Produto e Visão)

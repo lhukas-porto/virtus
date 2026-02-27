@@ -7,75 +7,52 @@ import { Button } from '../components/Button';
 export const LoginScreen = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
+    const [loginError, setLoginError] = useState('');
+    const [isLoginMode, setIsLoginMode] = useState(true);
 
-    const handleLogin = async () => {
-        console.log('Tentando logar:', email);
-        setLoading(true);
-        try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-            console.log('Resposta Login:', { data, error });
-            if (error) {
-                if (Platform.OS === 'web') window.alert(error.message);
-                else Alert.alert('Ops!', error.message);
+    const handleAction = async () => {
+        setLoginError('');
+
+        if (isLoginMode) {
+            if (!email || !password) {
+                setLoginError('Por favor, preencha E-mail e Senha para entrar.');
+                return;
             }
-        } catch (e: any) {
-            console.error('Erro no login:', e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const [showNameModal, setShowNameModal] = useState(false);
-    const [tempName, setTempName] = useState('');
-
-    const startSignUp = () => {
-        if (!email || !password) {
-            const msg = 'Por favor, preencha E-mail e Senha primeiro.';
-            if (Platform.OS === 'web') window.alert(msg);
-            else Alert.alert('Ops!', msg);
-            return;
-        }
-        setTempName('');
-        setShowNameModal(true);
-    };
-
-    const confirmSignUp = async () => {
-        if (!tempName.trim()) {
-            if (Platform.OS === 'web') window.alert('Precisamos de um nome para continuar.');
-            else Alert.alert('Ops!', 'Precisamos de um nome para continuar.');
-            return;
-        }
-
-        setShowNameModal(false);
-        const firstName = tempName.trim().split(' ')[0]; // Usa apenas o primeiro nome
-
-        setLoading(true);
-        try {
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: { name: firstName }
+            setLoading(true);
+            try {
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) setLoginError(error.message);
+            } catch (e: any) {
+                setLoginError(e.message);
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            if (!name.trim() || !email || !password) {
+                setLoginError('Por favor, preencha Nome, E-mail e Senha para cadastrar.');
+                return;
+            }
+            const firstName = name.trim().split(' ')[0];
+            setLoading(true);
+            try {
+                const { error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: { data: { name: firstName } }
+                });
+                if (error) {
+                    setLoginError(error.message);
+                } else {
+                    if (Platform.OS === 'web') window.alert(`Bem-vindo, ${firstName}! Conta criada com sucesso.`);
+                    else Alert.alert('Sucesso', `Bem-vindo, ${firstName}! Conta criada com sucesso.`);
                 }
-            });
-
-            console.log('Resposta Supabase:', { data, error });
-
-            if (error) {
-                if (Platform.OS === 'web') window.alert(error.message);
-                else Alert.alert('Ops!', error.message);
-            } else {
-                const msg = `Bem-vindo, ${firstName}! Conta criada com sucesso.`;
-                if (Platform.OS === 'web') window.alert(msg);
-                else Alert.alert('Sucesso', msg);
+            } catch (e: any) {
+                setLoginError(e.message);
+            } finally {
+                setLoading(false);
             }
-        } catch (e: any) {
-            console.error('Erro catastrofico:', e);
-            if (Platform.OS === 'web') window.alert(e.message);
-            else Alert.alert('Erro', e.message);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -84,9 +61,6 @@ export const LoginScreen = () => {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.container}
         >
-            <View style={styles.bgDecoration} />
-            <View style={styles.bgDecorationBottom} />
-
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
                     <Image
@@ -98,6 +72,17 @@ export const LoginScreen = () => {
                 </View>
 
                 <View style={styles.form}>
+                    {!isLoginMode && (
+                        <>
+                            <Text style={styles.label}>Prenchimento do Nome</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={name}
+                                onChangeText={setName}
+                                placeholder="Como você quer ser chamado?"
+                            />
+                        </>
+                    )}
 
                     <Text style={styles.label}>E-mail</Text>
                     <TextInput
@@ -118,15 +103,21 @@ export const LoginScreen = () => {
                         secureTextEntry
                     />
 
+                    {!!loginError && (
+                        <Text style={{ color: 'red', marginBottom: 16, textAlign: 'center', fontFamily: theme.fonts.bold }}>
+                            {loginError}
+                        </Text>
+                    )}
+
                     <Button
-                        title={loading ? "Entrando..." : "Entrar"}
-                        onPress={handleLogin}
+                        title={loading ? "Aguarde..." : (isLoginMode ? "Entrar" : "Criar conta")}
+                        onPress={handleAction}
                         style={styles.loginButton}
                     />
 
                     <Button
-                        title="Criar nova conta"
-                        onPress={startSignUp}
+                        title={isLoginMode ? "Criar nova conta" : "Já possuo uma conta"}
+                        onPress={() => { setIsLoginMode(!isLoginMode); setLoginError(''); }}
                         type="secondary"
                         style={styles.signupButton}
                         textStyle={styles.signupText}
@@ -134,40 +125,6 @@ export const LoginScreen = () => {
                 </View>
             </ScrollView>
 
-            {/* Modal de Nome */}
-            <Modal
-                visible={showNameModal}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setShowNameModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Como você quer ser chamado?</Text>
-                        <Text style={{ marginBottom: 12, color: '#666' }}>Usaremos este nome para seus alarmes.</Text>
-                        <TextInput
-                            style={styles.modalInput}
-                            value={tempName}
-                            onChangeText={setTempName}
-                            placeholder="Ex: Maria"
-                            autoFocus
-                        />
-                        <View style={styles.modalButtons}>
-                            <Button
-                                title="Cancelar"
-                                type="secondary"
-                                onPress={() => setShowNameModal(false)}
-                                style={{ flex: 1, marginRight: 8 }}
-                            />
-                            <Button
-                                title="Continuar"
-                                onPress={confirmSignUp}
-                                style={{ flex: 1, marginLeft: 8 }}
-                            />
-                        </View>
-                    </View>
-                </View>
-            </Modal>
             <View style={styles.footerBranding}>
                 <Text style={styles.brandingLabel}>Desenvolvido por</Text>
                 <Image
@@ -183,7 +140,7 @@ export const LoginScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF', // Voltando para o Branco Puro para o teste final
+        backgroundColor: theme.colors.background,
     },
     scrollContent: {
         padding: 24,
@@ -271,26 +228,6 @@ const styles = StyleSheet.create({
         borderWidth: 0,
         opacity: 0.95,
         borderRadius: 4,
-    },
-    bgDecoration: {
-        position: 'absolute',
-        top: -150,
-        right: -100,
-        width: 450,
-        height: 450,
-        borderRadius: 225,
-        backgroundColor: 'rgba(6, 129, 91, 0.02)', // Mais sutil ainda
-        zIndex: 0,
-    },
-    bgDecorationBottom: {
-        position: 'absolute',
-        bottom: -200,
-        left: -150,
-        width: 600,
-        height: 600,
-        borderRadius: 300,
-        backgroundColor: 'rgba(194, 86, 61, 0.015)', // Mais sutil ainda
-        zIndex: 0,
     },
     modalOverlay: {
         flex: 1,

@@ -26,8 +26,15 @@
         "NOTIFICATIONS",
         "VIBRATE",
         "WAKE_LOCK",
-        "SCHEDULE_EXACT_ALARM"
-      ]
+        "SCHEDULE_EXACT_ALARM",
+        "SYSTEM_ALERT_WINDOW",
+        "USE_FULL_SCREEN_INTENT"
+      ],
+      "notifications": {
+        "fullScreenIntent": true,
+        "icon": "./assets/icon.png",
+        "color": "#06815B"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -40,7 +47,8 @@
           "cameraPermission": "Permitir que o Vitus use a câmera para escanear medicamentos."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-secure-store"
     ]
   }
 }

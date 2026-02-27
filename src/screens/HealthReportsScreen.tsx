@@ -6,9 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
-import { getMedicationHTML } from '../services/medicationReport';
+import { getHealthHTML } from '../services/reports';
 
-export const ReportsScreen = ({ navigation }: any) => {
+export const HealthReportsScreen = ({ navigation }: any) => {
     const { profile, session } = useAuth();
     const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'custom'>('week');
     const [customStart, setCustomStart] = useState(new Date());
@@ -24,7 +24,7 @@ export const ReportsScreen = ({ navigation }: any) => {
             let end = new Date();
 
             if (period === 'day') {
-                start = new Date(); // Hoje 00:00 (ajustado no service)
+                start = new Date();
                 end = new Date();
             } else if (period === 'week') {
                 start = new Date();
@@ -40,11 +40,11 @@ export const ReportsScreen = ({ navigation }: any) => {
             }
 
             const userName = profile?.name || session?.user?.user_metadata?.name || session?.user?.email || 'Usuário';
-            const html = await getMedicationHTML(userName, start, end);
+            const html = await getHealthHTML(userName, start, end);
 
             navigation.navigate('ReportPreview', {
                 html,
-                title: 'Relatório de Medicamentos'
+                title: 'Relatório de Sinais Vitais'
             });
 
         } catch (error: any) {
@@ -70,7 +70,7 @@ export const ReportsScreen = ({ navigation }: any) => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
-                <Text style={styles.title}>Relatórios</Text>
+                <Text style={styles.title}>Relatórios de Saúde</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.container}>
@@ -130,10 +130,10 @@ export const ReportsScreen = ({ navigation }: any) => {
                 )}
 
                 <View style={styles.card}>
-                    <Ionicons name="document-text-outline" size={48} color={theme.colors.primary} style={{ marginBottom: 16 }} />
-                    <Text style={styles.cardTitle}>Relatório PDF</Text>
+                    <Ionicons name="stats-chart-outline" size={48} color={theme.colors.primary} style={{ marginBottom: 16 }} />
+                    <Text style={styles.cardTitle}>Gerar Relatório de Sinais Vitais</Text>
                     <Text style={styles.cardDesc}>
-                        Gera um arquivo PDF contendo o histórico de todos os medicamentos tomados no período selecionado.
+                        Gera um arquivo PDF contendo seu histórico de pressão arterial e batimentos cardíacos no período selecionado.
                     </Text>
 
                     <Button
@@ -244,6 +244,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontFamily: theme.fonts.heading,
         marginBottom: 8,
+        textAlign: 'center',
     },
     cardDesc: {
         fontSize: 14,

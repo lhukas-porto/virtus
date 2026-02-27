@@ -32,12 +32,15 @@ export const initializeNotifications = async () => {
 
         if (Platform.OS === 'android') {
             await Notifications.setNotificationChannelAsync('medication_alert', {
-                name: 'Alarme de Medicamento',
+                name: 'Alarme de Medicamento (Crítico)',
+                description: 'Este canal dispara alarmes mesmo em modo silencioso.',
                 importance: Notifications.AndroidImportance.MAX,
-                vibrationPattern: [0, 500, 200, 500, 200, 500],
-                lightColor: '#E53935',
-                lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+                vibrationPattern: [0, 1000, 800, 1000, 800, 1000, 800, 1000],
+                lightColor: '#FF0000',
+                lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC, // GARANTE NA TELA DE BLOQUEIO
                 bypassDnd: true,
+                showBadge: true,
+                enableVibrate: true,
                 audioAttributes: {
                     usage: Notifications.AndroidAudioUsage.ALARM,
                     contentType: Notifications.AndroidAudioContentType.SONIFICATION,
@@ -90,14 +93,15 @@ export const scheduleMedicationReminder = async (medName: string, time: string, 
 
         const notificationId = await Notifications.scheduleNotificationAsync({
             content: {
-                title: `💊 HORA DO SEU REMÉDIO: ${medName.toUpperCase()}`,
-                body: `Toque para abrir o Vitus e confirmar sua dose.`,
+                title: `🚨 HORA DO SEU REMÉDIO: ${medName.toUpperCase()}`,
+                body: `URGENTE: Sua dose de ${medName} está aguardando!`,
                 data: { reminderId, medicationId, type: 'medication_alarm', medName },
-                sound: true,
-                vibrate: [0, 500, 200, 500, 200, 500],
-                color: '#E53935',
+                sound: 'default',
+                vibrate: [0, 1000, 800, 1000, 800, 1000],
                 priority: Notifications.AndroidNotificationPriority.MAX,
                 categoryIdentifier: 'medication',
+                color: '#FF0000',
+                interruptionLevel: 'timeSensitive',
                 sticky: true,
             },
             trigger: {
@@ -145,6 +149,7 @@ export const cancelNotification = async (id: string) => {
 export const syncNotifications = async () => {
     if (Platform.OS === 'web') return;
     try {
+        await initializeNotifications();
         await Notifications.cancelAllScheduledNotificationsAsync();
         const { supabase } = require('./supabase');
 

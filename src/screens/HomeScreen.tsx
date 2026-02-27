@@ -10,6 +10,8 @@ import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/nativ
 import { Button } from '../components/Button';
 import { syncNotifications } from '../services/notifications';
 import { Swipeable } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from 'react-native-reanimated';
 
 export const HomeScreen = () => {
     const { session } = useAuth();
@@ -101,34 +103,40 @@ export const HomeScreen = () => {
                 while (current <= endOfToday) {
                     const slotTime = new Date(current);
 
-                    // CRITICAL: Only items from the SAME day as todayStart
-                    if (slotTime.toDateString() !== todayStart.toDateString()) {
+                    // Ignora horários que já passaram ANTES do remédio ser cadastrado
+                    if (slotTime < new Date(rem.created_at)) {
                         current = new Date(current.getTime() + freq * 60 * 60 * 1000);
                         continue;
                     }
 
-                    const windowMs = (freq * 60 * 60 * 1000) / 2;
+                    // VERIFICAÇÃO RÍGIDA: Apenas se o slot for EXATAMENTE hoje
+                    if (slotTime.getDate() === todayStart.getDate() &&
+                        slotTime.getMonth() === todayStart.getMonth() &&
+                        slotTime.getFullYear() === todayStart.getFullYear()) {
 
-                    const matchedLog = logs?.find(l => {
-                        if (l.reminder_id !== rem.id) return false;
-                        const logTime = new Date(l.taken_at).getTime();
-                        return Math.abs(logTime - slotTime.getTime()) < windowMs;
-                    });
+                        const windowMs = (freq * 60 * 60 * 1000) / 2;
 
-                    let finalLog = matchedLog;
-                    if (!finalLog && freq >= 20) {
-                        finalLog = logs?.find(l => l.reminder_id === rem.id);
+                        const matchedLog = logs?.find(l => {
+                            if (l.reminder_id !== rem.id) return false;
+                            const logTime = new Date(l.taken_at).getTime();
+                            return Math.abs(logTime - slotTime.getTime()) < windowMs;
+                        });
+
+                        let finalLog = matchedLog;
+                        if (!finalLog && freq >= 20) {
+                            finalLog = logs?.find(l => l.reminder_id === rem.id);
+                        }
+
+                        generatedItems.push({
+                            id: rem.id + '-' + slotTime.toISOString(),
+                            reminderId: rem.id,
+                            medication: rem.medications,
+                            time: slotTime,
+                            log: finalLog,
+                            status: finalLog ? finalLog.status : 'pending',
+                            original: rem
+                        });
                     }
-
-                    generatedItems.push({
-                        id: rem.id + '-' + slotTime.toISOString(),
-                        reminderId: rem.id,
-                        medication: rem.medications,
-                        time: slotTime,
-                        log: finalLog,
-                        status: finalLog ? finalLog.status : 'pending',
-                        original: rem
-                    });
 
                     current = new Date(current.getTime() + freq * 60 * 60 * 1000);
                 }
@@ -189,10 +197,20 @@ export const HomeScreen = () => {
         }
     };
 
+    const checkScale = useSharedValue(1);
+    const [celebrationItem, setCelebrationItem] = useState<string | null>(null);
+
     const handleCheck = async (item: any) => {
         if (item.status === 'taken') return;
 
         try {
+            // Trigger local animation first for instant feedback
+            setCelebrationItem(item.id);
+            checkScale.value = withSequence(
+                withSpring(1.5),
+                withSpring(1)
+            );
+
             const { error } = await supabase.from('medication_logs').insert([{
                 reminder_id: item.reminderId,
                 medication_id: item.medication.id,
@@ -201,8 +219,15 @@ export const HomeScreen = () => {
             }]);
 
             if (error) throw error;
-            fetchAgenda();
+
+            // Wait a bit to let the animation finish before re-fetching
+            setTimeout(() => {
+                setCelebrationItem(null);
+                fetchAgenda();
+            }, 600);
+
         } catch (e) {
+            setCelebrationItem(null);
             if (Platform.OS === 'web') window.alert('Falha ao registrar.');
             else Alert.alert('Erro', 'Falha ao registrar.');
         }
@@ -210,9 +235,16 @@ export const HomeScreen = () => {
 
     const handleDeleteReminder = async (reminderId: string) => {
         const title = 'Cancelar Alarme';
-        const message = 'Deseja cancelar o alarme atual e todos os seguintes para este medicamento?';
+        const message = 'O alarme será cancelado, mas os registros de doses já tomadas continuarão no seu relatório.';
 
         const performDelete = async () => {
+            // 1. Desvincular os logs já registrados (preserva o histórico)
+            await supabase
+                .from('medication_logs')
+                .update({ reminder_id: null })
+                .eq('reminder_id', reminderId);
+
+            // 2. Agora sim, deletar o reminder (sem perder os logs)
             const { error } = await supabase.from('medication_reminders').delete().eq('id', reminderId);
             if (!error) {
                 await syncNotifications();
@@ -239,6 +271,29 @@ export const HomeScreen = () => {
     useFocusEffect(
         React.useCallback(() => {
             fetchAgenda();
+
+            // Check for Android Overlay Permission Reminder
+            const checkOverlayPermission = async () => {
+                if (Platform.OS !== 'android') return;
+
+                const hasReminded = await AsyncStorage.getItem('vitus_overlay_reminder');
+                if (!hasReminded) {
+                    Alert.alert(
+                        "Configuração Importante 🚨",
+                        "Para que o alarme toque mesmo com a tela bloqueada, você precisa autorizar uma configuração manual:\n\n" +
+                        "1. Vá em Configurações > Apps > Vitus\n" +
+                        "2. Procure por 'Aparecer sobre outros aplicativos'\n" +
+                        "3. Marque como PERMITIDO\n\n" +
+                        "Também verifique em 'Notificações' se a categoria 'Alarme Crítico' está com pop-up ativo.",
+                        [
+                            { text: "Entendido", onPress: () => AsyncStorage.setItem('vitus_overlay_reminder', 'true') },
+                            { text: "Lembrar depois" }
+                        ]
+                    );
+                }
+            };
+            checkOverlayPermission();
+
         }, [session, route?.params?.refreshTimestamp])
     );
 
@@ -251,12 +306,29 @@ export const HomeScreen = () => {
         };
     }, []);
 
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Bom dia';
+        if (hour < 18) return 'Boa tarde';
+        return 'Boa noite';
+    };
+
+    const quotes = [
+        "Hoje é um bom dia para se cuidar. 🌿",
+        "Sua saúde é o seu maior tesouro. 💎",
+        "Pequenos hábitos, grandes vitórias! ✨",
+        "Respire fundo e aproveite seu dia. 🌬️",
+        "Cuidar de si mesmo é um ato de amor. ❤️"
+    ];
+
+    const quoteToday = quotes[new Date().getDate() % quotes.length];
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
                 <View style={styles.header}>
                     <View>
-                        <Text style={styles.greeting}>Olá,</Text>
+                        <Text style={styles.greeting}>{getGreeting()},</Text>
                         <Text style={styles.userName}>{userName}!</Text>
                     </View>
                     <TouchableOpacity style={styles.profileChip} onPress={() => navigation.navigate('Profile')}>
@@ -270,6 +342,12 @@ export const HomeScreen = () => {
                         )}
                     </TouchableOpacity>
                 </View>
+
+                {/* Card de Inspiração */}
+                <Card style={styles.quoteCard}>
+                    <Ionicons name="leaf-outline" size={20} color={theme.colors.primary} style={{ marginRight: 12 }} />
+                    <Text style={styles.quoteText}>{quoteToday}</Text>
+                </Card>
 
                 <View style={[styles.section, { flex: 1 }]}>
                     <View style={styles.sectionHeader}>
@@ -338,21 +416,23 @@ export const HomeScreen = () => {
                                                     )}
                                                 </View>
 
-                                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                <View style={{ flexDirection: 'row', gap: 6, alignSelf: 'flex-start', marginTop: 2 }}>
                                                     <TouchableOpacity
                                                         style={[styles.checkCircle, isTaken && styles.checkCircleActive]}
                                                         onPress={() => handleCheck(item)}
                                                         disabled={isTaken}
                                                     >
-                                                        <Ionicons
-                                                            name={isTaken ? "checkmark" : "ellipse-outline"}
-                                                            size={24}
-                                                            color={isTaken ? "#FFF" : theme.colors.primary}
-                                                        />
+                                                        <Animated.View style={celebrationItem === item.id ? { transform: [{ scale: checkScale }] } : {}}>
+                                                            <Ionicons
+                                                                name={isTaken ? "checkmark" : "ellipse-outline"}
+                                                                size={22}
+                                                                color={isTaken ? "#FFF" : theme.colors.primary}
+                                                            />
+                                                        </Animated.View>
                                                     </TouchableOpacity>
 
                                                     {!isTaken && (
-                                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                                        <View style={{ flexDirection: 'row', gap: 6 }}>
                                                             <TouchableOpacity
                                                                 style={styles.optionBtn}
                                                                 onPress={() => navigation.navigate('AlarmConfig', {
@@ -362,14 +442,14 @@ export const HomeScreen = () => {
                                                                     slotTime: item.time.toISOString()
                                                                 })}
                                                             >
-                                                                <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
+                                                                <Ionicons name="create-outline" size={18} color={theme.colors.primary} />
                                                             </TouchableOpacity>
 
                                                             <TouchableOpacity
                                                                 style={styles.optionBtn}
                                                                 onPress={() => handleDeleteReminder(item.reminderId)}
                                                             >
-                                                                <Ionicons name="trash-outline" size={20} color={theme.colors.alert} />
+                                                                <Ionicons name="trash-outline" size={18} color={theme.colors.alert} />
                                                             </TouchableOpacity>
                                                         </View>
                                                     )}
@@ -382,8 +462,13 @@ export const HomeScreen = () => {
                         })
                     ) : (
                         <View style={styles.emptyContainer}>
-                            <Ionicons name="calendar-outline" size={64} color={theme.colors.border} />
-                            <Text style={styles.noAgendaText}>Nenhum alarme pendente.</Text>
+                            <View style={styles.emptyIconCircle}>
+                                <Ionicons name="leaf" size={64} color={theme.colors.primary} />
+                            </View>
+                            <Text style={styles.noAgendaText}>Tudo em ordem!</Text>
+                            <Text style={styles.emptySubtext}>
+                                Você já cuidou de tudo por hoje. Aproveite o descanso! 🌿
+                            </Text>
                         </View>
                     )}
                 </View>
@@ -422,7 +507,7 @@ const styles = StyleSheet.create({
     greeting: {
         fontSize: 20,
         color: theme.colors.text,
-        opacity: 0.6,
+        opacity: 0.8, // Increased for accessibility
         fontFamily: theme.fonts.body,
     },
     userName: {
@@ -430,6 +515,23 @@ const styles = StyleSheet.create({
         color: theme.colors.text,
         fontFamily: theme.fonts.heading,
         marginTop: -4,
+    },
+    quoteCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        padding: 16,
+        borderRadius: 20,
+        marginBottom: 32,
+        borderWidth: 1,
+        borderColor: 'rgba(6, 129, 91, 0.1)', // More visible
+    },
+    quoteText: {
+        fontSize: 16,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.primary,
+        fontStyle: 'italic',
+        fontWeight: '500', // Better contrast
     },
     profileChip: {
         padding: 4,
@@ -461,7 +563,7 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 16,
-        backgroundColor: theme.colors.primary + '10',
+        backgroundColor: theme.colors.primary + '15', // a bit darker
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12
@@ -481,17 +583,17 @@ const styles = StyleSheet.create({
     },
     agendaDosage: {
         fontSize: 14,
-        fontFamily: theme.fonts.body,
+        fontFamily: theme.fonts.semiBold, // Bolder
         color: theme.colors.primary,
-        opacity: 0.8,
+        opacity: 0.9, // Higher contrast
         marginTop: 2,
     },
     checkCircle: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         borderWidth: 2,
-        borderColor: theme.colors.primary + '30',
+        borderColor: theme.colors.primary + '40',
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#FFF',
@@ -501,28 +603,45 @@ const styles = StyleSheet.create({
         borderColor: theme.colors.primary,
     },
     optionBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         borderWidth: 1,
-        borderColor: '#F0F0F0',
+        borderColor: '#E0E0E0',
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#FFF',
     },
     noAgendaText: {
+        fontSize: 22,
+        fontFamily: theme.fonts.heading,
+        color: theme.colors.primary,
+        textAlign: 'center',
+        marginTop: 16,
+    },
+    emptySubtext: {
         fontSize: 16,
         fontFamily: theme.fonts.body,
         color: theme.colors.text,
-        opacity: 0.4,
+        opacity: 0.7,
         textAlign: 'center',
-        marginTop: 10,
+        marginTop: 8,
+        paddingHorizontal: 20,
+    },
+    emptyIconCircle: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: theme.colors.primary + '10',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     emptyContainer: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 60,
+        marginTop: 40,
+        paddingBottom: 20,
     },
     mainAddButton: {
         marginTop: 20,

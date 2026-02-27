@@ -7,11 +7,11 @@ import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { generateHealthReport, exportHealthCSV } from '../services/reports';
+import { generateHealthReport } from '../services/reports';
 
 export const HealthLogScreen = () => {
     const { session, profile } = useAuth();
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const [systolic, setSystolic] = useState('');
     const [diastolic, setDiastolic] = useState('');
     const [heartRate, setHeartRate] = useState('');
@@ -80,35 +80,7 @@ export const HealthLogScreen = () => {
         }
     };
 
-    const handleGenerateReport = async () => {
-        if (history.length === 0) {
-            const msg = 'Você precisa de pelo menos um registro para gerar o relatório.';
-            if (Platform.OS === 'web') window.alert(msg);
-            else Alert.alert('Sem dados', msg);
-            return;
-        }
-        try {
-            await generateHealthReport(userName, history);
-        } catch (e) {
-            if (Platform.OS === 'web') window.alert('Não foi possível gerar o PDF.');
-            else Alert.alert('Erro', 'Não foi possível gerar o PDF.');
-        }
-    };
 
-    const handleExportCSV = async () => {
-        if (history.length === 0) {
-            const msg = 'Você precisa de pelo menos um registro para exportar.';
-            if (Platform.OS === 'web') window.alert(msg);
-            else Alert.alert('Sem dados', msg);
-            return;
-        }
-        try {
-            await exportHealthCSV(history);
-        } catch (e) {
-            if (Platform.OS === 'web') window.alert('Não foi possível exportar os dados.');
-            else Alert.alert('Erro', 'Não foi possível exportar os dados.');
-        }
-    };
 
     return (
         <View style={styles.safeArea}>
@@ -182,28 +154,10 @@ export const HealthLogScreen = () => {
                         style={styles.saveButton}
                     />
 
-                    {/* Report Actions */}
-                    <View style={styles.reportActions}>
-                        <TouchableOpacity
-                            style={styles.reportRow}
-                            onPress={handleGenerateReport}
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons name="document-text-outline" size={22} color={theme.colors.primary} />
-                            <Text style={styles.reportLink}>Relatório PDF</Text>
-                        </TouchableOpacity>
-
-                        <View style={styles.actionDivider} />
-
-                        <TouchableOpacity
-                            style={styles.reportRow}
-                            onPress={handleExportCSV}
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons name="grid-outline" size={22} color={theme.colors.primary} />
-                            <Text style={styles.reportLink}>Exportar Excel</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity onPress={() => navigation.navigate('HealthReports')} style={styles.reportRow}>
+                        <Ionicons name="document-text-outline" size={20} color={theme.colors.primary} />
+                        <Text style={styles.reportRowText}>Relatório PDF</Text>
+                    </TouchableOpacity>
 
                     {/* History Section */}
                     <View style={styles.historySection}>
@@ -267,18 +221,18 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     mainCard: {
-        padding: 24,
+        padding: 20,
         backgroundColor: theme.colors.surface,
-        marginBottom: 16,
+        marginBottom: 14,
     },
     inputSection: {
         alignItems: 'center',
     },
     sectionLabel: {
-        fontSize: 18,
+        fontSize: 15,
         fontFamily: theme.fonts.bold,
         color: theme.colors.text,
-        marginBottom: 20,
+        marginBottom: 16,
     },
     pressureRow: {
         flexDirection: 'row',
@@ -289,11 +243,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     largeInput: {
-        fontSize: 48,
+        fontSize: 40,
         fontFamily: theme.fonts.heading,
         color: theme.colors.primary,
         textAlign: 'center',
-        minWidth: 80,
+        minWidth: 68,
     },
     unitLabel: {
         fontSize: 12,
@@ -303,31 +257,31 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
     separator: {
-        fontSize: 40,
+        fontSize: 34,
         color: theme.colors.border,
-        marginHorizontal: 15,
+        marginHorizontal: 12,
         fontFamily: theme.fonts.body,
     },
     divider: {
         height: 1,
         backgroundColor: theme.colors.border,
         width: '100%',
-        marginVertical: 24,
+        marginVertical: 20,
         opacity: 0.5,
     },
     heartRateContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#F9F9F9',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 14,
     },
     midInput: {
-        fontSize: 24,
+        fontSize: 20,
         fontFamily: theme.fonts.bold,
         color: theme.colors.text,
-        minWidth: 50,
+        minWidth: 42,
         textAlign: 'center',
     },
     unitInline: {
@@ -340,33 +294,18 @@ const styles = StyleSheet.create({
     saveButton: {
         marginTop: 12,
     },
-    reportActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F0F7F0',
-        borderRadius: 16,
-        paddingVertical: 8,
-        marginTop: 24,
-        marginBottom: 12,
-    },
-    actionDivider: {
-        width: 1,
-        height: 20,
-        backgroundColor: theme.colors.primary,
-        opacity: 0.2,
-        marginHorizontal: 15,
-    },
     reportRow: {
         flexDirection: 'row',
+        justifyContent: 'center',
         alignItems: 'center',
+        marginTop: 24,
+        marginBottom: 12,
         gap: 8,
-        padding: 8,
     },
-    reportLink: {
+    reportRowText: {
         color: theme.colors.primary,
         fontFamily: theme.fonts.bold,
-        fontSize: 15,
+        fontSize: 14,
     },
     historySection: {
         marginTop: 32,

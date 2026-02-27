@@ -1,3 +1,4 @@
+import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
@@ -15,6 +16,7 @@ import {
 } from '@expo-google-fonts/playfair-display';
 
 import { View, Text, Platform } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AlarmOverlay } from './src/components/AlarmOverlay';
 import { initializeNotifications } from './src/services/notifications';
@@ -54,10 +56,12 @@ export default function App() {
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
-            <AuthProvider>
-                <RootNavigation />
-                {Platform.OS !== 'web' && <AlarmOverlay />}
-            </AuthProvider>
+            <SafeAreaProvider>
+                <AuthProvider>
+                    <RootNavigation />
+                    {Platform.OS !== 'web' && <AlarmOverlay />}
+                </AuthProvider>
+            </SafeAreaProvider>
         </GestureHandlerRootView>
     );
 }

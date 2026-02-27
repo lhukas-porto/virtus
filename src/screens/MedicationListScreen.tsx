@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/Button';
+import { syncNotifications } from '../services/notifications';
 
 export const MedicationListScreen = () => {
     const { session } = useAuth();
@@ -50,6 +51,7 @@ export const MedicationListScreen = () => {
                     .eq('id', id);
 
                 if (error) throw error;
+                await syncNotifications();
                 fetchMedications();
             } catch (e: any) {
                 if (Platform.OS === 'web') window.alert('Não foi possível remover o medicamento.');
@@ -228,7 +230,7 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 18,
         color: theme.colors.text,
-        opacity: 0.6,
+        opacity: 0.85,
         fontFamily: theme.fonts.body,
         marginTop: 4,
     },
@@ -244,7 +246,7 @@ const styles = StyleSheet.create({
     },
     searchIcon: {
         marginRight: 10,
-        opacity: 0.4,
+        opacity: 0.6,
     },
     searchInput: {
         flex: 1,
@@ -356,15 +358,15 @@ const styles = StyleSheet.create({
     },
     medDosage: {
         fontSize: 13,
-        fontFamily: theme.fonts.body,
+        fontFamily: theme.fonts.semiBold,
         color: theme.colors.text,
-        opacity: 0.55,
+        opacity: 0.8,
     },
     medSummary: {
         fontSize: 13,
         fontFamily: theme.fonts.body,
         color: theme.colors.text,
-        opacity: 0.45,
+        opacity: 0.7,
         marginTop: 4,
         lineHeight: 18,
     },

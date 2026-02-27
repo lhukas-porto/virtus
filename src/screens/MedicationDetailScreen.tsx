@@ -6,6 +6,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { supabase } from '../services/supabase';
+import { syncNotifications } from '../services/notifications';
 
 export const MedicationDetailScreen = () => {
     const navigation = useNavigation<any>();
@@ -92,6 +93,7 @@ export const MedicationDetailScreen = () => {
                 setReminders(prev => prev.filter(r => r.id !== reminderId));
                 setNextDoses(prev => prev.filter(d => d.reminderId !== reminderId));
                 DeviceEventEmitter.emit('event.refreshAgenda');
+                await syncNotifications();
                 showAlert('Sucesso', 'Alarme e sequências futuras removidos.');
             }
         };
@@ -113,6 +115,7 @@ export const MedicationDetailScreen = () => {
                     .delete()
                     .eq('id', med.id);
                 if (error) throw error;
+                await syncNotifications();
                 navigation.goBack();
             } catch (e: any) {
                 showAlert('Erro', 'Não foi possível remover o medicamento.');

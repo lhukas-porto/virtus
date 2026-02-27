@@ -4,7 +4,7 @@ export const theme = {
     colors: {
         primary: '#06815B', // Novo Verde Esmeralda (Vibrante)
         accent: '#C2563D',  // Nova Terracota (Quente)
-        background: '#F0F4F2', // Soft Mint Background
+        background: '#FFFFFF', // Voltando para o Branco Puro
         text: '#1F2937',    // Deep Slate
         alert: '#C2563D',   // Alertas em Terracota
         success: '#06815B',
@@ -22,7 +22,7 @@ export const theme = {
     },
     roundness: 16,
     fonts: {
-        heading: 'Outfit_700Bold', // Unificando com a tipografia "Outfit" da tela de login
+        heading: 'Outfit_700Bold', // Voltando para a fonte preferida
         body: 'Outfit_400Regular',
         semiBold: 'Outfit_600SemiBold',
         bold: 'Outfit_700Bold',

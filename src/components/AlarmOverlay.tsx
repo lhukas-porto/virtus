@@ -82,19 +82,27 @@ export const AlarmOverlay = () => {
     }, []);
 
     const startAlarms = async () => {
-        // Start Vibration
-        Vibration.vibrate([0, 1000, 500, 1000], true);
+        // Start persistent Vibration
+        Vibration.vibrate([0, 1000, 500, 1000, 500, 1000], true);
 
-        // For "Default System Sound", on Android we rely on the Notification Channel already configured.
-        // However, the USER wants a "continuous" alarm experience like a clock.
-        // We'll keep the overlay sound but if they want the *native* alarm tone, they'd need a local file.
-        // I will use a more "alarm-like" beep and ensure it plays.
         try {
-            if (sound) await sound.unloadAsync();
+            // Unload if exists
+            if (sound) {
+                try { await sound.unloadAsync(); } catch (e) { }
+            }
+
+            // Load and play a persistent alarm-like beep
+            // Note: In a production app, we should use a local asset for zero-latency.
             const { sound: newSound } = await Audio.Sound.createAsync(
                 { uri: 'https://www.soundjay.com/buttons/beep-01a.mp3' },
-                { shouldPlay: true, isLooping: true, volume: 1.0 }
+                {
+                    shouldPlay: true,
+                    isLooping: true,
+                    volume: 1.0,
+                    androidImplementation: 'MediaPlayer' // More robust for background
+                }
             );
+            await newSound.setVolumeAsync(1.0);
             setSound(newSound);
         } catch (error) {
             console.log('Error playing sound', error);

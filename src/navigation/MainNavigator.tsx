@@ -59,11 +59,11 @@ export const MainNavigator = () => {
             <View style={[
                 styles.footer,
                 Platform.OS === 'web' && {
-                    position: 'fixed' as any,
+                    position: 'absolute' as any,
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    zIndex: 999,
+                    zIndex: 9999,
                 }
             ]}>
                 <SafeAreaView edges={['bottom']}>

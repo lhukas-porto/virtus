@@ -9,18 +9,15 @@ import { theme } from '../theme/theme';
 // ---------------------------------------------------------------------------
 interface FiringAlarm {
     id: string;
+    reminderId: string;
+    medId: string;
     medName: string;
     timeLabel: string;
     dosage?: string;
 }
 
-const CHECK_INTERVAL_MS = 30_000; // 30 seconds
+const CHECK_INTERVAL_MS = 30_000;
 
-// ---------------------------------------------------------------------------
-// Web Audio API beep (no external file needed)
-// ---------------------------------------------------------------------------
-// Web Audio API beep (no external file needed)
-// ---------------------------------------------------------------------------
 const audioCtxContainer = { ctx: null as AudioContext | null };
 
 function playAlarmBeep(): () => void {
@@ -72,9 +69,6 @@ function playAlarmBeep(): () => void {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Inner modal
-// ---------------------------------------------------------------------------
 const WebAlarmModal = () => {
     const [queue, setQueue] = useState<FiringAlarm[]>([]);
     const [visible, setVisible] = useState(false);
@@ -87,7 +81,6 @@ const WebAlarmModal = () => {
     const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Resume audio on first interaction
     useEffect(() => {
         const resume = () => {
             if (audioCtxContainer.ctx?.state === 'suspended') {
@@ -98,16 +91,14 @@ const WebAlarmModal = () => {
         return () => window.removeEventListener('click', resume);
     }, []);
 
-    // ---------- Helpers ----------
     const firedKey = (reminderId: string, h: number, m: number, dateStr: string) =>
         `vitus_v2_alarm_${reminderId}_${h}_${m}_${dateStr}`;
 
-    // ---------- Poll ----------
     const checkAlarms = useCallback(async () => {
         try {
             const { data: reminders, error } = await supabase
                 .from('medication_reminders')
-                .select(`id, reminder_time, frequency_hours, dosage_quantity, dosage_unit, medications ( name )`);
+                .select(`id, medication_id, reminder_time, frequency_hours, dosage_quantity, dosage_unit, medications ( name )`);
 
             if (error || !reminders) return;
 
@@ -130,13 +121,14 @@ const WebAlarmModal = () => {
 
                 for (let i = 0; i < cycles; i++) {
                     const slotH = (bH + i * freq) % 24;
-                    // Match if in the exact same hour/minute
                     if (slotH === nowH && bM === nowM) {
                         const key = firedKey(rem.id, slotH, bM, dateStr);
                         if (!sessionStorage.getItem(key)) {
                             sessionStorage.setItem(key, '1');
                             firing.push({
                                 id: key,
+                                reminderId: rem.id,
+                                medId: rem.medication_id,
                                 medName,
                                 timeLabel: `${String(slotH).padStart(2, '0')}:${String(bM).padStart(2, '0')}`,
                                 dosage,
@@ -154,7 +146,6 @@ const WebAlarmModal = () => {
         }
     }, []);
 
-    // ---------- Show modal ----------
     useEffect(() => {
         if (queue.length > 0 && !visible) {
             setVisible(true);
@@ -178,8 +169,7 @@ const WebAlarmModal = () => {
         }
     }, [queue.length, visible]);
 
-    // ---------- Dismiss ----------
-    const dismiss = useCallback(() => {
+    const dismissCurrent = useCallback(() => {
         if (stopSoundRef.current) stopSoundRef.current();
         if (pulseLoop.current) pulseLoop.current.stop();
 
@@ -192,9 +182,24 @@ const WebAlarmModal = () => {
         });
     }, [scaleAnim, opacityAnim]);
 
-    // ---------- Timer ----------
+    const handleTaken = async (alarm: FiringAlarm) => {
+        dismissCurrent();
+        try {
+            await supabase.from('medication_logs').insert([{
+                reminder_id: alarm.reminderId,
+                medication_id: alarm.medId,
+                taken_at: new Date().toISOString(),
+                status: 'taken'
+            }]);
+            import('react-native').then(rn => {
+                rn.DeviceEventEmitter.emit('event.refreshAgenda');
+            });
+        } catch (err) {
+            console.warn('WebAlarmBanner: failed to mark as taken', err);
+        }
+    };
+
     useEffect(() => {
-        // First check shortly after mount
         const initial = setTimeout(checkAlarms, 2000);
         timerRef.current = setInterval(checkAlarms, CHECK_INTERVAL_MS);
 
@@ -205,7 +210,6 @@ const WebAlarmModal = () => {
         };
     }, [checkAlarms]);
 
-    // Nothing to show
     if (!visible || queue.length === 0) return null;
 
     const current = queue[0];
@@ -214,7 +218,6 @@ const WebAlarmModal = () => {
         <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
             <Animated.View style={[styles.modal, { transform: [{ scale: scaleAnim }] }]}>
 
-                {/* Pulsing icon */}
                 <Animated.View style={[styles.iconCircle, { transform: [{ scale: pulseAnim }] }]}>
                     <Ionicons name="alarm" size={56} color="#fff" />
                 </Animated.View>
@@ -240,7 +243,7 @@ const WebAlarmModal = () => {
                 <View style={styles.actions}>
                     <TouchableOpacity
                         style={styles.btnTaken}
-                        onPress={dismiss}
+                        onPress={() => handleTaken(current)}
                         activeOpacity={0.8}
                     >
                         <Ionicons name="checkmark-circle" size={22} color="#fff" />
@@ -249,7 +252,7 @@ const WebAlarmModal = () => {
 
                     <TouchableOpacity
                         style={styles.btnSnooze}
-                        onPress={dismiss}
+                        onPress={dismissCurrent}
                         activeOpacity={0.8}
                     >
                         <Ionicons name="alarm-outline" size={20} color={theme.colors.primary} />

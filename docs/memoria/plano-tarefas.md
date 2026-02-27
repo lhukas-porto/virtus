@@ -1,57 +1,52 @@
-# PLANO DE TAREFAS - VITUS 💜🌿
+# PLANO DE TAREFAS - VITUS 💜🌿 (ARQUIVADO/ESTABILIZADO)
 
-**Criado por:** Hades
-**Fase Atual:** 01 - Fundação
-
----
-
-## 🔵 FASE 01: FUNDAÇÃO E ESTRUTURA
-
-### Tarefa 1.1: Conexão Vital (Supabase Setup)
-**Objetivo:** Estabelecer a ponte entre o app e nosso banco de dados.
-
-**Ações:**
-1. Criar arquivo `.env` na raiz (Instruir Lucas a preencher).
-2. Criar `src/services/supabase.ts` para inicializar o cliente.
-3. Criar arquivo `supabase_schema.sql` com as tabelas base (profiles, medications, logs).
-
-**Critérios de Aceite:**
-- ✅ O cliente do Supabase inicializa sem erros.
-- ✅ O arquivo .env está no .gitignore.
+**Status:** Todas as tarefas das Fases 01 a 05 foram concluídas com sucesso.
+**Data de Congelamento:** 25/02/2026
 
 ---
 
-### Tarefa 1.2: O Mapa da Jornada (Navegação)
-**Objetivo:** Configurar como o usuário se move no app.
+## ✅ FASES CONCLUÍDAS (NÚCLEO ESTÁVEL)
 
-**Ações:**
-1. Criar `src/navigation/index.tsx`.
-2. Configurar `AuthStack` (Login/Cadastro).
-3. Configurar `AppTabs` (Home, Scanner, Perfil).
+### 🔵 FASE 01: FUNDAÇÃO
+- ✅ Setup Supabase & Auth
+- ✅ Navegação Base
+- ✅ Tema "Natureza Viva" (Creme/Verde/Terracota)
 
-**Critérios de Aceite:**
-- ✅ Troca entre Telas funciona.
-- ✅ Estilo visual segue o `theme.ts` (Creme Suave).
+### 🟢 FASE 02: DIÁRIO DE SAÚDE
+- ✅ Agenda Inteligente
+- ✅ Logs de Sinais Vitais
+- ✅ Histórico Cronológico
+
+### 🟡 FASE 03: LUPA MÁGICA
+- ✅ Scanner de Código de Barras
+- ✅ Busca em APIs de Medicamentos
+- ✅ Upload de Fotos (Web/Mobile)
+
+### 🟠 FASE 04: NOTIFICAÇÕES & ARMÁRIO
+- ✅ Alarmes Flexíveis (Frequência em Horas)
+- ✅ Detalhes de Próximas Doses
+- ✅ Gestão de Armário Digital
+
+### 🔴 FASE 05: RELATÓRIOS & WEB
+- ✅ Exportação PDF
+- ✅ Blindagem Web (Expo-Notifications/AV)
+- ✅ Polimento de UX & Responsividade
+
+---
+
+## 🏗️ PRÓXIMA JORNADA: FASE 06 (EM DEFINIÇÃO)
+As tarefas abaixo dependem da aprovação do Lucas.
+
+### 🟣 TAREFA 6.1: ELOS DE CUIDADO (FAMILY LINK)
+**Objetivo:** Permitir que outra pessoa acompanhe a saúde do usuário.
+- [ ] Criar sistema de convite/permissão.
+- [ ] Dashbord de visualização para "Cuidador".
+
+### 🟣 TAREFA 6.2: VITÓRIAS DIÁRIAS (GAMIFICAÇÃO)
+**Objetivo:** Motivar o uso correto dos remédios.
+- [ ] Implementar sistema de "Fogo" (Streaks).
+- [ ] Medalhas por semanas completas.
 
 ---
 
-### Tarefa 1.3: Identidade do Médico da Família (Auth)
-**Objetivo:** Criar as portas de entrada do app.
-
-**Ações:**
-1. Criar `src/screens/LoginScreen.tsx`.
-2. Criar `src/screens/RegisterScreen.tsx`.
-3. Aplicar fontes `Merriweather` (Heading) e `Open Sans` (Body).
-
-**Critérios de Aceite:**
-- ✅ Input de texto com contraste alto.
-- ✅ Botões seguindo o componente padrão.
-
----
-
-## Receitas HADES
-- **Supabase Auth:** Usar `supabase.auth.signInWithPassword`.
-- **Estilo:** Sempre embrulhar em `SafeAreaView`.
-
----
-**Atualizado por:** HADES
+**Atualizado por:** SHIVA

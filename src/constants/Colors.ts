@@ -9,7 +9,7 @@ const tintColorDark = '#34D399'; // Emerald 400
 export const Colors = {
     light: {
         text: '#1F2937', // Gray 800
-        background: '#F0F4F2', // Soft Mint Background
+        background: '#FFFFFF', // Voltando para o Branco Puro
         tint: tintColorLight,
         icon: '#6B7280', // Gray 500
         tabIconDefault: '#9CA3AF', // Gray 400

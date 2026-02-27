@@ -10,19 +10,24 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { HealthLogScreen } from '../screens/HealthLogScreen';
 import { AddMedicationScreen } from '../screens/AddMedicationScreen';
+
 import { ScannerScreen } from '../screens/ScannerScreen';
 import { MedicationListScreen } from '../screens/MedicationListScreen';
 import { MedicationDetailScreen } from '../screens/MedicationDetailScreen';
 import { AlarmConfigScreen } from '../screens/AlarmConfigScreen';
 import { SelectMedicationScreen } from '../screens/SelectMedicationScreen';
 import { ReportsScreen } from '../screens/ReportsScreen';
+
+import { HealthReportsScreen } from '../screens/HealthReportsScreen';
+import { ReportPreviewScreen } from '../screens/ReportPreviewScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MainNavigator } from './MainNavigator';
+import { PaywallScreen } from '../screens/PaywallScreen';
 
 const Stack = createStackNavigator();
 
 export default function RootNavigation() {
-    const { session, loading } = useAuth();
+    const { session, loading, trialEnded, isPremium } = useAuth();
 
     if (loading) {
         return (
@@ -32,10 +37,17 @@ export default function RootNavigation() {
         );
     }
 
+    // Se o trial acabou e não é premium, mostra apenas a tela de Paywall
+    const showPaywall = trialEnded && !isPremium;
+
     return (
         <NavigationContainer theme={NavTheme}>
             <Stack.Navigator screenOptions={{ headerShown: false }}>
-                {session ? (
+                {!session ? (
+                    <Stack.Screen name="Login" component={LoginScreen} />
+                ) : showPaywall ? (
+                    <Stack.Screen name="Paywall" component={PaywallScreen} />
+                ) : (
                     <>
                         <Stack.Screen name="Main" component={MainNavigator} />
                         <Stack.Screen name="HealthLog" component={HealthLogScreen} />
@@ -45,9 +57,9 @@ export default function RootNavigation() {
                         <Stack.Screen name="AlarmConfig" component={AlarmConfigScreen} />
                         <Stack.Screen name="SelectMedication" component={SelectMedicationScreen} />
                         <Stack.Screen name="Reports" component={ReportsScreen} />
+                        <Stack.Screen name="HealthReports" component={HealthReportsScreen} />
+                        <Stack.Screen name="ReportPreview" component={ReportPreviewScreen} />
                     </>
-                ) : (
-                    <Stack.Screen name="Login" component={LoginScreen} />
                 )}
             </Stack.Navigator>
         </NavigationContainer>
