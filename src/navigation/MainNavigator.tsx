@@ -69,6 +69,7 @@ export const MainNavigator = () => {
                 <SafeAreaView edges={['bottom']}>
                     <View style={styles.tabBar}>
                         <Animated.View
+                            pointerEvents="none"
                             style={[
                                 styles.indicator,
                                 {

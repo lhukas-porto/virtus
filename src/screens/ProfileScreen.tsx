@@ -214,11 +214,8 @@ export const ProfileScreen = () => {
 
     const handleLogout = async () => {
         if (Platform.OS === 'web') {
-            const confirmed = window.confirm("Deseja realmente sair da sua conta?");
-            if (confirmed) {
-                const { error } = await supabase.auth.signOut();
-                if (error) alert("Erro: " + error.message);
-            }
+            const { error } = await supabase.auth.signOut();
+            if (error) alert("Erro: " + error.message);
             return;
         }
 
@@ -361,6 +358,9 @@ const styles = StyleSheet.create({
     container: {
         padding: 24,
         paddingBottom: Platform.OS === 'web' ? 120 : 40,
+        maxWidth: 600,
+        width: '100%',
+        alignSelf: 'center',
     },
     header: {
         marginBottom: 32,

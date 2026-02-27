@@ -203,6 +203,9 @@ const styles = StyleSheet.create({
     container: {
         padding: 24,
         paddingBottom: Platform.OS === 'web' ? 120 : 40,
+        maxWidth: 600,
+        width: '100%',
+        alignSelf: 'center',
     },
     header: {
         marginBottom: 32,

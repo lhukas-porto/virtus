@@ -147,6 +147,9 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         justifyContent: 'center',
         zIndex: 1,
+        maxWidth: 600,
+        width: '100%',
+        alignSelf: 'center',
     },
     header: {
         marginBottom: 32,
