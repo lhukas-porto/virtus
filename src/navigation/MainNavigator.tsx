@@ -10,26 +10,34 @@ import { HealthLogScreen } from '../screens/HealthLogScreen';
 import { MedicationListScreen } from '../screens/MedicationListScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { WebAlarmBanner } from '../components/WebAlarmBanner';
+import { CaregiverDashboardScreen } from '../screens/CaregiverDashboardScreen';
 
 // Height of the tab bar (used for paddingBottom on web)
 const TAB_BAR_HEIGHT = 65;
 
 export const MainNavigator = () => {
-    const { width } = useWindowDimensions();
+    const { width: windowWidth } = useWindowDimensions();
+    // No web, podemos limitar a largura máxima do tab bar para não ficar muito esticado
+    const width = Math.min(windowWidth, 600);
+    const containerStyle: any = Platform.OS === 'web' ? { alignSelf: 'center', width: '100%', maxWidth: 600 } : { width: '100%' };
+
     const [activeTab, setActiveTab] = useState(0);
     const [indicatorAnim] = useState(new Animated.Value(0));
 
     const tabs = [
         { id: 0, label: 'Alarmes', icon: 'alarm', component: HomeScreen },
-        { id: 1, label: 'Monitoramento', icon: 'stats-chart', component: HealthLogScreen },
+        { id: 1, label: 'Saúde', icon: 'stats-chart', component: HealthLogScreen },
         { id: 2, label: 'Farmácia', icon: 'medical', component: MedicationListScreen },
-        { id: 3, label: 'Perfil', icon: 'person', component: ProfileScreen },
+        { id: 3, label: 'Cuidado', icon: 'heart', component: CaregiverDashboardScreen },
+        { id: 4, label: 'Perfil', icon: 'person', component: ProfileScreen },
     ];
+
+    const tabWidth = width / tabs.length;
 
     const handleTabPress = (index: number) => {
         setActiveTab(index);
         Animated.spring(indicatorAnim, {
-            toValue: index * (width / 4),
+            toValue: index * tabWidth,
             useNativeDriver: true,
             tension: 50,
             friction: 7
@@ -37,72 +45,83 @@ export const MainNavigator = () => {
     };
 
     React.useEffect(() => {
-        indicatorAnim.setValue(activeTab * (width / 4));
+        indicatorAnim.setValue(activeTab * tabWidth);
     }, [width]);
 
-    const ActiveComponent = tabs[activeTab].component;
+    const ActiveComponent = tabs[activeTab].component as React.ComponentType;
+
+    // Barra de abas comum
+    const TabBarContent = () => (
+        <View style={[styles.tabBar, { width }]}>
+            <Animated.View
+                pointerEvents="none"
+                style={[
+                    styles.indicator,
+                    {
+                        width: tabWidth,
+                        transform: [{ translateX: indicatorAnim }]
+                    }
+                ]}
+            />
+            {tabs.map((tab, index) => {
+                const isActive = activeTab === index;
+                return (
+                    <TouchableOpacity
+                        key={tab.id}
+                        style={styles.tabItem}
+                        onPress={() => handleTabPress(index)}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons
+                            name={(isActive ? tab.icon : `${tab.icon}-outline`) as any}
+                            size={24}
+                            color={isActive ? theme.colors.primary : '#9CA3AF'}
+                        />
+                        <Text style={[
+                            styles.tabLabel,
+                            isActive && styles.tabLabelActive
+                        ]}>
+                            {tab.label}
+                        </Text>
+                    </TouchableOpacity>
+                );
+            })}
+        </View>
+    );
+
+    if (Platform.OS === 'web') {
+        return (
+            <View style={styles.webContainer}>
+                <WebAlarmBanner />
+                <View style={styles.webContent}>
+                    <ActiveComponent />
+                </View>
+                <View style={styles.footer}>
+                    <View style={containerStyle}>
+                        <TabBarContent />
+                    </View>
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
-            {/* Web-only in-app alarm banner (expo-notifications not available on web) */}
             <WebAlarmBanner />
-
-            {/* Content area — on web, pad the bottom so content isn't hidden under the fixed tab bar */}
-            <View style={[
-                styles.content,
-                Platform.OS === 'web' && { paddingBottom: TAB_BAR_HEIGHT }
-            ]}>
+            <View style={[styles.content, { paddingBottom: TAB_BAR_HEIGHT }]}>
                 <ActiveComponent />
             </View>
-
-            {/* Footer — on web use position:fixed so it's always anchored to the bottom */}
             <View style={[
                 styles.footer,
-                Platform.OS === 'web' && {
+                {
                     position: 'absolute' as any,
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    zIndex: 9999,
                 }
             ]}>
                 <SafeAreaView edges={['bottom']}>
-                    <View style={styles.tabBar}>
-                        <Animated.View
-                            pointerEvents="none"
-                            style={[
-                                styles.indicator,
-                                {
-                                    width: width / 4,
-                                    transform: [{ translateX: indicatorAnim }]
-                                }
-                            ]}
-                        />
-
-                        {tabs.map((tab, index) => {
-                            const isActive = activeTab === index;
-                            return (
-                                <TouchableOpacity
-                                    key={tab.id}
-                                    style={styles.tabItem}
-                                    onPress={() => handleTabPress(index)}
-                                    activeOpacity={0.7}
-                                >
-                                    <Ionicons
-                                        name={(isActive ? tab.icon : `${tab.icon}-outline`) as any}
-                                        size={24}
-                                        color={isActive ? theme.colors.primary : '#9CA3AF'}
-                                    />
-                                    <Text style={[
-                                        styles.tabLabel,
-                                        isActive && styles.tabLabelActive
-                                    ]}>
-                                        {tab.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
+                    <TabBarContent />
                 </SafeAreaView>
             </View>
         </View>
@@ -116,6 +135,16 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
+    },
+    // Web-specific layout: column flex so tab bar is in normal document flow
+    webContainer: {
+        flex: 1,
+        flexDirection: 'column',
+        backgroundColor: theme.colors.background,
+    },
+    webContent: {
+        flex: 1,
+        overflow: 'hidden' as any,
     },
     footer: {
         backgroundColor: theme.colors.surface,

@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
+import { AppState, AppStateStatus, Platform } from 'react-native';
+import { getPushToken } from '../services/notifications';
 
 interface Profile {
     id: string;
@@ -33,7 +35,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isPremium, setIsPremium] = useState(false);
 
     const checkTrial = (prof: Profile) => {
-        if (prof.is_premium) {
+        // Whitelist de usuários com acesso liberado (Premium vitalício)
+        // Lucas, atualizei para os e-mails exatos que você pediu!
+        const whitelistEmails = [
+            'lhukas@gmail.com',
+            'lubontempo@gmail.com',
+            'redpro.ia@gmail.com',
+            'victorlllima@gmail.com',
+            'levino@uol.com.br'
+        ];
+
+        const userEmail = session?.user?.email?.toLowerCase();
+
+        const isWhitelisted = userEmail && whitelistEmails.some(email => userEmail.includes(email));
+
+        if (prof.is_premium || isWhitelisted) {
             setTrialEnded(false);
             setIsPremium(true);
             return;
@@ -64,11 +80,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const lastAppState = useRef(AppState.currentState);
+    const lastActiveTime = useRef(Date.now());
+    const sessionRef = useRef(session);
+
+    useEffect(() => {
+        sessionRef.current = session;
+    }, [session]);
+
     useEffect(() => {
         // Check active session
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
-            if (session?.user) fetchProfile(session.user.id);
+            if (session?.user) {
+                fetchProfile(session.user.id);
+                // Salvar o Push Token para o pilar de cuidadores
+                if (Platform.OS !== 'web') {
+                    getPushToken().then(token => {
+                        const updateData: any = {};
+                        if (token) updateData.push_token = token;
+                        if (session.user.email) updateData.email = session.user.email.toLowerCase();
+                        
+                        if (Object.keys(updateData).length > 0) {
+                            supabase.from('profiles').update(updateData).eq('id', session.user.id);
+                        }
+                    });
+                }
+            }
             setLoading(false);
         });
 
@@ -83,7 +121,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         });
 
-        return () => subscription.unsubscribe();
+        // Inactivity Logout (15 minutes)
+        const appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+            if (
+                lastAppState.current.match(/inactive|background/) &&
+                nextAppState === 'active'
+            ) {
+                const now = Date.now();
+                const diffMinutes = (now - lastActiveTime.current) / (1000 * 60);
+
+                // Se passou mais de 15 minutos, desloga
+                if (diffMinutes >= 15 && sessionRef.current) {
+                    supabase.auth.signOut();
+                }
+            }
+
+            if (nextAppState.match(/inactive|background/)) {
+                lastActiveTime.current = Date.now();
+            }
+
+            lastAppState.current = nextAppState;
+        });
+
+        return () => {
+            subscription.unsubscribe();
+            appStateSubscription.remove();
+        };
     }, []);
 
     return (

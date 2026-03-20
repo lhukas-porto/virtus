@@ -4,6 +4,8 @@ import { Platform } from 'react-native';
 import { supabase } from './supabase';
 import { theme } from '../theme/theme';
 
+import { VITUS_LOGO_BASE64 } from '../utils/logoBase64';
+
 export const getMedicationHTML = async (
   userName: string,
   periodStart: Date,
@@ -41,7 +43,7 @@ export const getMedicationHTML = async (
         <style>
           body { font-family: 'Helvetica', sans-serif; padding: 20px; color: #333; }
           .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid ${theme.colors.primary}; padding-bottom: 20px; margin-bottom: 30px; }
-          .logo { font-size: 32px; font-weight: bold; color: ${theme.colors.primary}; }
+          .logo { height: 40px; object-fit: contain; }
           .info { margin-bottom: 20px; font-size: 14px; }
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 12px; }
@@ -54,7 +56,7 @@ export const getMedicationHTML = async (
       </head>
       <body>
         <div class="header">
-            <div class="logo">Vitus</div>
+            <img class="logo" src="${VITUS_LOGO_BASE64}" alt="Vitus" />
             <div style="text-align: right;">Relatório de Medicamentos</div>
         </div>
 

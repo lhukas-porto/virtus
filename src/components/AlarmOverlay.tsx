@@ -7,6 +7,7 @@ import { supabase } from '../services/supabase';
 import { scheduleSnooze } from '../services/notifications';
 import { useAuth } from '../context/AuthContext';
 import { Audio } from 'expo-av';
+import { notifyCaregivers } from '../services/caregiverAlerts';
 
 const { width } = Dimensions.get('window');
 
@@ -53,8 +54,32 @@ export const AlarmOverlay = () => {
         const subscription = Notifications.addNotificationReceivedListener(notification => {
             const data = notification.request.content.data;
             if (data && data.type === 'medication_alarm') {
+                // --- 🛡️ TRAVA DE SEGURANÇA RÍGIDA 🛡️ ---
+                // Evita disparos imediatos (no agendamento) ou passados (sincronização)
+                const now = new Date();
+                const alarmTimeStr = (data as any).time;
+                const [h, m] = typeof alarmTimeStr === 'string' ? alarmTimeStr.split(':').map(Number) : [now.getHours(), now.getMinutes()];
+                const scheduledTime = new Date(now);
+                scheduledTime.setHours(h, m, 0, 0);
+
+                // Diferença absoluta (Passado ou Futuro) maior que 1 minuto = Ignorar
+                const diffMs = Math.abs(scheduledTime.getTime() - now.getTime());
+                if (diffMs > 60000) {
+                    console.log(`--- [ALARME BLOQUEADO] Diferença de ${Math.round(diffMs / 1000)}s - Não é a hora exata. ---`);
+                    return;
+                }
+
                 setAlarmData(data);
-                startAlarms();
+                startAlarms(); // Reativado para tocar assim que recebe a push
+                
+                // Inicia timer para avisar cuidador se não houver resposta em 10 minutos
+                const timer = setTimeout(() => {
+                    if (data.medName) {
+                        notifyCaregivers(userName || 'Paciente', String(data.medName), String((data as any).time || 'agora'));
+                    }
+                }, 10 * 60 * 1000);
+
+                return () => clearTimeout(timer);
             }
         });
 
@@ -64,7 +89,7 @@ export const AlarmOverlay = () => {
 
             if (data && data.type === 'medication_alarm') {
                 setAlarmData(data);
-                startAlarms();
+                startAlarms(); // Garante que toca quando abre pela notificação
 
                 if (actionId === 'take') {
                     await handleTakeAction(data);
@@ -131,18 +156,37 @@ export const AlarmOverlay = () => {
 
         try {
             if (reminderId && medicationId) {
-                const { error } = await supabase.from('medication_logs').insert({
-                    reminder_id: reminderId,
-                    medication_id: medicationId,
-                    taken_at: new Date().toISOString(),
-                    status: 'taken'
-                });
+                // 1. Verificar se já não foi registrado nos últimos 30 minutos (evita duplicidade do loop)
+                const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+                const { data: existingLog } = await supabase
+                    .from('medication_logs')
+                    .select('id')
+                    .eq('reminder_id', reminderId)
+                    .eq('medication_id', medicationId)
+                    .gte('taken_at', thirtyMinsAgo)
+                    .limit(1);
 
-                if (error) {
-                    Alert.alert("Erro", "Não foi possível salvar o registro online.");
+                if (existingLog && existingLog.length > 0) {
+                    console.log('Dose já registrada recentemente. Ignorado.');
                 } else {
-                    DeviceEventEmitter.emit('event.medicationTaken');
+                    const { error } = await supabase.from('medication_logs').insert({
+                        reminder_id: reminderId,
+                        medication_id: medicationId,
+                        taken_at: new Date().toISOString(),
+                        status: 'taken'
+                    });
+
+                    if (error) {
+                        Alert.alert("Erro", "Não foi possível salvar o registro online.");
+                    } else {
+                        DeviceEventEmitter.emit('event.medicationTaken');
+                    }
                 }
+
+                // Limpa a bandeja de notificações para evitar cliques fantasmas
+                try {
+                    await Notifications.dismissAllNotificationsAsync();
+                } catch (e) { }
             }
         } catch (error) {
             console.error(error);
@@ -174,11 +218,14 @@ export const AlarmOverlay = () => {
         );
     };
 
-    const performSnooze = (data: any, minutes: number) => {
+    const performSnooze = async (data: any, minutes: number) => {
         if (data) {
-            scheduleSnooze(data.medName, minutes, data);
+            await scheduleSnooze(data.medName, minutes, data);
         }
         setAlarmData(null);
+        try {
+            await Notifications.dismissAllNotificationsAsync();
+        } catch (e) { }
     };
 
     if (!alarmData) return null;
@@ -216,6 +263,17 @@ export const AlarmOverlay = () => {
 
                     <TouchableOpacity style={styles.snoozeButton} onPress={() => handleSnoozeStart(alarmData)}>
                         <Text style={styles.snoozeText}>Lembrar depois</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.alertCaregiverButton}
+                        onPress={() => {
+                            notifyCaregivers(userName || 'Paciente', alarmData.medName, alarmData.time || 'agora');
+                            Alert.alert("Aviso Enviado", "Seus cuidadores foram notificados.");
+                        }}
+                    >
+                        <Ionicons name="warning-outline" size={16} color={theme.colors.alert} style={{ marginRight: 6 }} />
+                        <Text style={styles.alertCaregiverText}>Alertar Cuidador Agora</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -297,4 +355,15 @@ const styles = StyleSheet.create({
         opacity: 0.6,
         textDecorationLine: 'underline',
     },
+    alertCaregiverButton: {
+        marginTop: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+    },
+    alertCaregiverText: {
+        fontSize: 14,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.alert,
+    }
 });

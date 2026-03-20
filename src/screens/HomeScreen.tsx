@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, DeviceEventEmitter, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, DeviceEventEmitter, Alert, Platform, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../theme/theme';
 import { Card } from '../components/Card';
@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { Button } from '../components/Button';
-import { syncNotifications } from '../services/notifications';
+import { syncNotifications, registerPushToken } from '../services/notifications';
 import { Swipeable } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from 'react-native-reanimated';
@@ -21,11 +21,13 @@ export const HomeScreen = () => {
     const [loading, setLoading] = useState(true);
     const [userName, setUserName] = useState('');
     const [hiddenItems, setHiddenItems] = useState<string[]>([]);
+    const [supervisedPatients, setSupervisedPatients] = useState<any[]>([]);
+    const [viewingPatientId, setViewingPatientId] = useState<string | null>(null);
 
-    const fetchAgenda = async () => {
+    const fetchAgenda = async (showLoading = false) => {
         if (!session?.user?.id) return;
         try {
-            setLoading(true);
+            if (showLoading || agendaItems.length === 0) setLoading(true);
 
             // Get user info
             const { data: profile } = await supabase
@@ -145,6 +147,19 @@ export const HomeScreen = () => {
             generatedItems.sort((a, b) => a.time.getTime() - b.time.getTime());
             setAgendaItems(generatedItems);
 
+            // Fetch supervised patients if seeing own agenda
+            if (!viewingPatientId) {
+                const { data: shares } = await supabase
+                    .from('caregivers')
+                    .select('patient_id, profiles!caregivers_patient_id_fkey(*)')
+                    .eq('caregiver_email', session.user.email?.toLowerCase())
+                    .eq('status', 'active');
+
+                if (shares) {
+                    setSupervisedPatients(shares.map((s: any) => s.profiles).filter(Boolean));
+                }
+            }
+
         } catch (error) {
             console.error('Error fetching agenda:', error);
         } finally {
@@ -199,12 +214,10 @@ export const HomeScreen = () => {
 
     const checkScale = useSharedValue(1);
     const [celebrationItem, setCelebrationItem] = useState<string | null>(null);
+    const [timeModal, setTimeModal] = useState<{ item: any; hour: string; minute: string } | null>(null);
 
-    const handleCheck = async (item: any) => {
-        if (item.status === 'taken') return;
-
+    const confirmMedicationTaken = async (item: any, takenAt: Date) => {
         try {
-            // Trigger local animation first for instant feedback
             setCelebrationItem(item.id);
             checkScale.value = withSequence(
                 withSpring(1.5),
@@ -214,13 +227,12 @@ export const HomeScreen = () => {
             const { error } = await supabase.from('medication_logs').insert([{
                 reminder_id: item.reminderId,
                 medication_id: item.medication.id,
-                taken_at: new Date().toISOString(),
+                taken_at: takenAt.toISOString(),
                 status: 'taken'
             }]);
 
             if (error) throw error;
 
-            // Wait a bit to let the animation finish before re-fetching
             setTimeout(() => {
                 setCelebrationItem(null);
                 fetchAgenda();
@@ -230,6 +242,37 @@ export const HomeScreen = () => {
             setCelebrationItem(null);
             if (Platform.OS === 'web') window.alert('Falha ao registrar.');
             else Alert.alert('Erro', 'Falha ao registrar.');
+        }
+    };
+
+    const handleCheck = async (item: any) => {
+        if (item.status === 'taken') return;
+
+        const now = new Date();
+        const defaultHour = String(now.getHours()).padStart(2, '0');
+        const defaultMinute = String(now.getMinutes()).padStart(2, '0');
+
+        if (Platform.OS === 'web') {
+            const input = window.prompt(
+                `${item.medication.name}\n\nQue horas você tomou o remédio?\n(formato HH:MM)`,
+                `${defaultHour}:${defaultMinute}`
+            );
+            if (input === null) return; // cancelled
+
+            const parts = input.trim().split(':');
+            const h = parseInt(parts[0] || defaultHour);
+            const m = parseInt(parts[1] || defaultMinute);
+
+            if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) {
+                window.alert('Horário inválido. Use o formato HH:MM.');
+                return;
+            }
+
+            const takenAt = new Date();
+            takenAt.setHours(h, m, 0, 0);
+            await confirmMedicationTaken(item, takenAt);
+        } else {
+            setTimeModal({ item, hour: defaultHour, minute: defaultMinute });
         }
     };
 
@@ -254,7 +297,7 @@ export const HomeScreen = () => {
 
         if (Platform.OS === 'web') {
             if (window.confirm(`${title}\n\n${message}`)) {
-                performDelete();
+                await performDelete();
             }
         } else {
             Alert.alert(title, message, [
@@ -268,9 +311,83 @@ export const HomeScreen = () => {
         }
     };
 
+    const fetchAgendaForPatient = async (patientId: string) => {
+        setLoading(true);
+        setViewingPatientId(patientId);
+        try {
+            // Get patient profile for the name
+            const { data: pProfile } = await supabase.from('profiles').select('name').eq('id', patientId).single();
+            if (pProfile) setUserName(pProfile.name.split(' ')[0]);
+
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
+            const { data: reminders } = await supabase
+                .from('medication_reminders')
+                .select(`*, medications!inner (*)`)
+                .eq('medications.profile_id', patientId);
+
+            const { data: logs } = await supabase
+                .from('medication_logs')
+                .select('*')
+                .gte('taken_at', todayStart.toISOString());
+
+            const generatedItems: any[] = [];
+            reminders?.forEach((rem: any) => {
+                const [h, m] = rem.reminder_time.slice(0, 5).split(':').map(Number);
+                const endOfToday = new Date(todayStart);
+                endOfToday.setHours(23, 59, 59, 999);
+                let current = new Date(todayStart);
+                current.setHours(h, m, 0, 0);
+                const freq = rem.frequency_hours || 24;
+                while (current < todayStart) current.setHours(current.getHours() + freq);
+                while (current <= endOfToday) {
+                    const slotTime = new Date(current);
+
+                    // Ignora horários que já passaram ANTES do remédio ser cadastrado
+                    if (slotTime < new Date(rem.created_at)) {
+                        current = new Date(current.getTime() + freq * 3600000);
+                        continue;
+                    }
+
+                    const matchedLog = logs?.find(l => {
+                        if (l.reminder_id !== rem.id) return false;
+                        const logTime = new Date(l.taken_at).getTime();
+                        return Math.abs(logTime - slotTime.getTime()) < (freq * 3600000) / 2;
+                    });
+
+                    generatedItems.push({
+                        id: rem.id + '-' + slotTime.toISOString(),
+                        reminderId: rem.id,
+                        medication: rem.medications,
+                        time: slotTime,
+                        log: matchedLog,
+                        status: matchedLog ? matchedLog.status : 'pending',
+                        original: rem
+                    });
+                    current = new Date(current.getTime() + freq * 3600000);
+                }
+            });
+            generatedItems.sort((a, b) => a.time.getTime() - b.time.getTime());
+            setAgendaItems(generatedItems);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useFocusEffect(
         React.useCallback(() => {
-            fetchAgenda();
+            if (viewingPatientId) {
+                fetchAgendaForPatient(viewingPatientId);
+            } else {
+                fetchAgenda(agendaItems.length === 0);
+            }
+
+            if (session?.user?.id) {
+                registerPushToken(session.user.id);
+            }
 
             // Check for Android Overlay Permission Reminder
             const checkOverlayPermission = async () => {
@@ -294,7 +411,7 @@ export const HomeScreen = () => {
             };
             checkOverlayPermission();
 
-        }, [session, route?.params?.refreshTimestamp])
+        }, [session, route?.params?.refreshTimestamp, viewingPatientId])
     );
 
     React.useEffect(() => {
@@ -343,6 +460,37 @@ export const HomeScreen = () => {
                     </TouchableOpacity>
                 </View>
 
+                {/* Seção Cuidando de (Share) */}
+                {supervisedPatients.length > 0 && (
+                    <View style={styles.supervisedSection}>
+                        <Text style={styles.supervisedTitle}>Monitorando:</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.supervisedScroll}>
+                            <TouchableOpacity
+                                style={[styles.patientChip, !viewingPatientId && styles.patientChipActive]}
+                                onPress={() => setViewingPatientId(null)}
+                            >
+                                <Text style={[styles.patientChipText, !viewingPatientId && styles.patientChipTextActive]}>Minha Agenda</Text>
+                            </TouchableOpacity>
+                            {supervisedPatients.map(p => (
+                                <TouchableOpacity
+                                    key={p.id}
+                                    style={[styles.patientChip, viewingPatientId === p.id && styles.patientChipActive]}
+                                    onPress={() => fetchAgendaForPatient(p.id)}
+                                >
+                                    <Text style={[styles.patientChipText, viewingPatientId === p.id && styles.patientChipTextActive]}>{p.name.split(' ')[0]}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+
+                {viewingPatientId && (
+                    <View style={styles.patientIndicator}>
+                        <Ionicons name="eye-outline" size={16} color={theme.colors.primary} />
+                        <Text style={styles.patientIndicatorText}>Você está visualizando a agenda de outra pessoa.</Text>
+                    </View>
+                )}
+
                 {/* Card de Inspiração */}
                 <Card style={styles.quoteCard}>
                     <Ionicons name="leaf-outline" size={20} color={theme.colors.primary} style={{ marginRight: 12 }} />
@@ -375,89 +523,69 @@ export const HomeScreen = () => {
                             const displayTime = isTaken && item.log ? new Date(item.log.taken_at) : item.time;
 
                             return (
-                                <Swipeable
-                                    key={item.id}
-                                    enabled={isTaken}
-                                    containerStyle={{ marginBottom: 12 }}
-                                    renderRightActions={() => (
-                                        <View style={styles.swipeDeleteAction}>
-                                            <Ionicons name="eye-off-outline" size={24} color="#FFF" />
-                                            <Text style={styles.swipeActionText}>Ocultar</Text>
-                                        </View>
-                                    )}
-                                    overshootRight={false}
-                                    onSwipeableOpen={(direction) => {
-                                        if (direction === 'right') {
-                                            setHiddenItems(prev => [...prev, item.id]);
-                                        }
-                                    }}
+                                <TouchableOpacity
+                                    activeOpacity={0.9}
+                                    onPress={() => isTaken ? showFutureSchedule(item) : handleCheck(item)}
                                 >
-                                    <TouchableOpacity
-                                        activeOpacity={0.9}
-                                        onPress={() => isTaken ? showFutureSchedule(item) : handleCheck(item)}
-                                    >
-                                        <Card style={styles.agendaCard}>
-                                            <View style={styles.agendaInfo}>
-                                                <View style={[styles.timeBox, isTaken && styles.timeBoxTaken]}>
-                                                    <Text style={[styles.timeText, isTaken && { color: '#FFF' }]}>
-                                                        {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </Text>
-                                                </View>
+                                    <Card style={styles.agendaCard}>
+                                        <View style={styles.agendaInfo}>
+                                            <View style={[styles.timeBox, isTaken && styles.timeBoxTaken]}>
+                                                <Text style={[styles.timeText, isTaken && { color: '#FFF' }]}>
+                                                    {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </Text>
+                                            </View>
 
-                                                <View style={{ flex: 1, paddingHorizontal: 12 }}>
-                                                    <Text style={[styles.agendaMedName, isTaken && { textDecorationLine: 'line-through', opacity: 0.6 }]}>
-                                                        {item.medication.name}
+                                            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+                                                <Text style={[styles.agendaMedName, isTaken && { textDecorationLine: 'line-through', opacity: 0.6 }]}>
+                                                    {item.medication.name}
+                                                </Text>
+                                                {item.original.dosage_quantity && (
+                                                    <Text style={styles.agendaDosage}>
+                                                        {item.original.dosage_quantity} {item.original.dosage_unit}
+                                                        {item.original.duration_days ? ` por ${item.original.duration_days} dias` : ' (Uso contínuo)'}
                                                     </Text>
-                                                    {item.original.dosage_quantity && (
-                                                        <Text style={styles.agendaDosage}>
-                                                            {item.original.dosage_quantity} {item.original.dosage_unit}
-                                                            {item.original.duration_days ? ` por ${item.original.duration_days} dias` : ' (Uso contínuo)'}
-                                                        </Text>
-                                                    )}
-                                                </View>
+                                                )}
+                                            </View>
 
-                                                <View style={{ flexDirection: 'row', gap: 6, alignSelf: 'flex-start', marginTop: 2 }}>
+                                            <View style={{ flexDirection: 'row', gap: 6, alignSelf: 'flex-start', marginTop: 2 }}>
+                                                <TouchableOpacity
+                                                    style={[styles.checkCircle, isTaken && styles.checkCircleActive]}
+                                                    onPress={() => handleCheck(item)}
+                                                    disabled={isTaken}
+                                                >
+                                                    <Animated.View style={celebrationItem === item.id ? { transform: [{ scale: checkScale }] } : {}}>
+                                                        <Ionicons
+                                                            name={isTaken ? "checkmark" : "ellipse-outline"}
+                                                            size={22}
+                                                            color={isTaken ? "#FFF" : theme.colors.primary}
+                                                        />
+                                                    </Animated.View>
+                                                </TouchableOpacity>
+
+                                                <View style={{ flexDirection: 'row', gap: 6 }}>
                                                     <TouchableOpacity
-                                                        style={[styles.checkCircle, isTaken && styles.checkCircleActive]}
-                                                        onPress={() => handleCheck(item)}
-                                                        disabled={isTaken}
+                                                        style={styles.optionBtn}
+                                                        onPress={() => navigation.navigate('AlarmConfig', {
+                                                            reminder: item.original,
+                                                            medicationId: item.medication.id,
+                                                            medicationName: item.medication.name,
+                                                            slotTime: item.time.toISOString()
+                                                        })}
                                                     >
-                                                        <Animated.View style={celebrationItem === item.id ? { transform: [{ scale: checkScale }] } : {}}>
-                                                            <Ionicons
-                                                                name={isTaken ? "checkmark" : "ellipse-outline"}
-                                                                size={22}
-                                                                color={isTaken ? "#FFF" : theme.colors.primary}
-                                                            />
-                                                        </Animated.View>
+                                                        <Ionicons name="create-outline" size={18} color={theme.colors.primary} />
                                                     </TouchableOpacity>
 
-                                                    {!isTaken && (
-                                                        <View style={{ flexDirection: 'row', gap: 6 }}>
-                                                            <TouchableOpacity
-                                                                style={styles.optionBtn}
-                                                                onPress={() => navigation.navigate('AlarmConfig', {
-                                                                    reminder: item.original,
-                                                                    medicationId: item.medication.id,
-                                                                    medicationName: item.medication.name,
-                                                                    slotTime: item.time.toISOString()
-                                                                })}
-                                                            >
-                                                                <Ionicons name="create-outline" size={18} color={theme.colors.primary} />
-                                                            </TouchableOpacity>
-
-                                                            <TouchableOpacity
-                                                                style={styles.optionBtn}
-                                                                onPress={() => handleDeleteReminder(item.reminderId)}
-                                                            >
-                                                                <Ionicons name="trash-outline" size={18} color={theme.colors.alert} />
-                                                            </TouchableOpacity>
-                                                        </View>
-                                                    )}
+                                                    <TouchableOpacity
+                                                        style={styles.optionBtn}
+                                                        onPress={() => handleDeleteReminder(item.reminderId)}
+                                                    >
+                                                        <Ionicons name="trash-outline" size={18} color={theme.colors.alert} />
+                                                    </TouchableOpacity>
                                                 </View>
                                             </View>
-                                        </Card>
-                                    </TouchableOpacity>
-                                </Swipeable>
+                                        </View>
+                                    </Card>
+                                </TouchableOpacity>
                             );
                         })
                     ) : (
@@ -479,11 +607,114 @@ export const HomeScreen = () => {
                     style={styles.mainAddButton}
                 />
 
-                <TouchableOpacity onPress={() => navigation.navigate('Reports')} style={styles.reportRow}>
+                <TouchableOpacity onPress={() => navigation.navigate('PendingReminders')} style={styles.reportRow}>
+                    <Ionicons name="list-outline" size={20} color={theme.colors.primary} />
+                    <Text style={styles.reportRowText}>Próximas Doses / Ver Calendário</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('Reports')}
+                    style={[styles.reportRow, { marginTop: -20 }]}
+                >
                     <Ionicons name="document-text-outline" size={20} color={theme.colors.primary} />
-                    <Text style={styles.reportRowText}>Relatório PDF</Text>
+                    <Text style={styles.reportRowText}>Relatórios de Medicamentos</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('HealthLog')}
+                    style={[styles.reportRow, { marginTop: -20 }]}
+                >
+                    <Ionicons name="pulse-outline" size={20} color={theme.colors.primary} />
+                    <Text style={styles.reportRowText}>Diário de Sintomas & Sinais Vitais</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('AdherenceDashboard')}
+                    style={[styles.reportRow, { marginTop: -20, marginBottom: 60 }]}
+                >
+                    <Ionicons name="stats-chart-outline" size={20} color={theme.colors.primary} />
+                    <Text style={styles.reportRowText}>Meu Painel de Adesão</Text>
                 </TouchableOpacity>
             </ScrollView>
+
+            {/* Modal: Que horas você tomou o remédio? */}
+            <Modal
+                visible={!!timeModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setTimeModal(null)}
+            >
+                <View style={styles.timeModalOverlay}>
+                    <View style={styles.timeModalCard}>
+                        <Text style={styles.timeModalTitle}>
+                            💊 {timeModal?.item?.medication?.name}
+                        </Text>
+                        <Text style={styles.timeModalSubtitle}>
+                            Que horas você tomou de fato?
+                        </Text>
+
+                        <View style={styles.timeModalRow}>
+                            <View style={styles.timeModalInputGroup}>
+                                <TextInput
+                                    style={styles.timeModalInput}
+                                    value={timeModal?.hour ?? ''}
+                                    onChangeText={(v) => {
+                                        const clean = v.replace(/[^0-9]/g, '').slice(0, 2);
+                                        setTimeModal(prev => prev ? { ...prev, hour: clean } : null);
+                                    }}
+                                    keyboardType="number-pad"
+                                    maxLength={2}
+                                    selectTextOnFocus
+                                />
+                                <Text style={styles.timeModalInputLabel}>Horas</Text>
+                            </View>
+                            <Text style={styles.timeModalSep}>:</Text>
+                            <View style={styles.timeModalInputGroup}>
+                                <TextInput
+                                    style={styles.timeModalInput}
+                                    value={timeModal?.minute ?? ''}
+                                    onChangeText={(v) => {
+                                        const clean = v.replace(/[^0-9]/g, '').slice(0, 2);
+                                        setTimeModal(prev => prev ? { ...prev, minute: clean } : null);
+                                    }}
+                                    keyboardType="number-pad"
+                                    maxLength={2}
+                                    selectTextOnFocus
+                                />
+                                <Text style={styles.timeModalInputLabel}>Minutos</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.timeModalActions}>
+                            <TouchableOpacity
+                                style={styles.timeModalCancelBtn}
+                                onPress={() => setTimeModal(null)}
+                            >
+                                <Text style={styles.timeModalCancelText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.timeModalConfirmBtn}
+                                onPress={() => {
+                                    if (!timeModal) return;
+                                    const h = parseInt(timeModal.hour);
+                                    const m = parseInt(timeModal.minute);
+                                    if (isNaN(h) || isNaN(m) || h > 23 || m > 59) {
+                                        Alert.alert('Ops!', 'Horário inválido. Use de 00:00 a 23:59.');
+                                        return;
+                                    }
+                                    const takenAt = new Date();
+                                    takenAt.setHours(h, m, 0, 0);
+                                    const currentItem = timeModal.item;
+                                    setTimeModal(null);
+                                    confirmMedicationTaken(currentItem, takenAt);
+                                }}
+                            >
+                                <Text style={styles.timeModalConfirmText}>Confirmar ✓</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -699,5 +930,145 @@ const styles = StyleSheet.create({
         fontFamily: theme.fonts.bold,
         color: theme.colors.text,
         marginTop: -2
-    }
+    },
+    supervisedSection: {
+        marginBottom: 24,
+    },
+    supervisedTitle: {
+        fontSize: 14,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+        opacity: 0.5,
+        marginBottom: 12,
+        textTransform: 'uppercase',
+    },
+    supervisedScroll: {
+        flexDirection: 'row',
+    },
+    patientChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: '#F0F0F0',
+        borderRadius: 20,
+        marginRight: 10,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+    },
+    patientChipActive: {
+        backgroundColor: theme.colors.primary,
+        borderColor: theme.colors.primary,
+    },
+    patientChipText: {
+        fontSize: 14,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+    },
+    patientChipTextActive: {
+        color: '#FFF',
+    },
+    patientIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.primary + '10',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 20,
+    },
+    patientIndicatorText: {
+        fontSize: 13,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.primary,
+        marginLeft: 8,
+    },
+    // Time modal styles
+    timeModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        justifyContent: 'flex-end',
+    },
+    timeModalCard: {
+        backgroundColor: '#FFF',
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        padding: 28,
+        paddingBottom: 40,
+    },
+    timeModalTitle: {
+        fontSize: 19,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+        marginBottom: 6,
+    },
+    timeModalSubtitle: {
+        fontSize: 15,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.text,
+        opacity: 0.55,
+        marginBottom: 24,
+    },
+    timeModalRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        marginBottom: 8,
+    },
+    timeModalInputGroup: {
+        alignItems: 'center',
+    },
+    timeModalInput: {
+        fontSize: 48,
+        fontFamily: theme.fonts.heading,
+        color: theme.colors.primary,
+        textAlign: 'center',
+        borderBottomWidth: 2,
+        borderBottomColor: theme.colors.primary + '50',
+        minWidth: 84,
+        paddingVertical: 4,
+    },
+    timeModalInputLabel: {
+        fontSize: 11,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+        opacity: 0.4,
+        textTransform: 'uppercase',
+        marginTop: 6,
+    },
+    timeModalSep: {
+        fontSize: 40,
+        color: theme.colors.border,
+        fontFamily: theme.fonts.heading,
+        marginBottom: 20,
+    },
+    timeModalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 12,
+        marginTop: 28,
+    },
+    timeModalCancelBtn: {
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    timeModalCancelText: {
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+        opacity: 0.6,
+        fontSize: 15,
+    },
+    timeModalConfirmBtn: {
+        paddingHorizontal: 28,
+        paddingVertical: 14,
+        borderRadius: 16,
+        backgroundColor: theme.colors.primary,
+    },
+    timeModalConfirmText: {
+        fontFamily: theme.fonts.bold,
+        color: '#FFF',
+        fontSize: 15,
+    },
 });
+

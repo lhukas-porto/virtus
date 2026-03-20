@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../services/supabase';
+import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
 
 // ---------------------------------------------------------------------------
@@ -69,7 +70,7 @@ function playAlarmBeep(): () => void {
     }
 }
 
-const WebAlarmModal = () => {
+const WebAlarmModal = ({ userId }: { userId: string | undefined }) => {
     const [queue, setQueue] = useState<FiringAlarm[]>([]);
     const [visible, setVisible] = useState(false);
 
@@ -95,10 +96,12 @@ const WebAlarmModal = () => {
         `vitus_v2_alarm_${reminderId}_${h}_${m}_${dateStr}`;
 
     const checkAlarms = useCallback(async () => {
+        if (!userId) return; // Don't check if user is not logged in
         try {
             const { data: reminders, error } = await supabase
                 .from('medication_reminders')
-                .select(`id, medication_id, reminder_time, frequency_hours, dosage_quantity, dosage_unit, medications ( name )`);
+                .select(`id, medication_id, reminder_time, frequency_hours, dosage_quantity, dosage_unit, duration_days, created_at, medications!inner ( name, profile_id )`)
+                .eq('medications.profile_id', userId); // Filter by current user
 
             if (error || !reminders) return;
 
@@ -109,6 +112,14 @@ const WebAlarmModal = () => {
             const firing: FiringAlarm[] = [];
 
             for (const rem of reminders) {
+                // Skip if treatment has expired
+                if (rem.duration_days && rem.created_at) {
+                    const start = new Date(rem.created_at);
+                    const endDate = new Date(start);
+                    endDate.setDate(endDate.getDate() + rem.duration_days);
+                    if (now > endDate) continue; // Treatment finished — skip alarm
+                }
+
                 const parts = rem.reminder_time.slice(0, 5).split(':').map(Number);
                 const bH = parts[0];
                 const bM = parts[1];
@@ -269,10 +280,11 @@ const WebAlarmModal = () => {
 // with hooks, avoiding the React Rules of Hooks violation)
 // ---------------------------------------------------------------------------
 export const WebAlarmBanner = () => {
+    const { session } = useAuth();
     // Platform guard at the OUTER wrapper — inner component always mounts with
     // all hooks called unconditionally.
     if (Platform.OS !== 'web') return null;
-    return <WebAlarmModal />;
+    return <WebAlarmModal userId={session?.user?.id} />;
 };
 
 // ---------------------------------------------------------------------------

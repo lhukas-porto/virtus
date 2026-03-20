@@ -1,17 +1,46 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { Audio } from 'expo-av';
+import { theme } from '../theme/theme';
+
+const IntentLauncher = Platform.OS === 'android' ? require('expo-intent-launcher') : null;
 
 // Configure how notifications are handled when the app is open
 if (Platform.OS !== 'web') {
+    // Configuração global de como as notificações aparecem com o app aberto
     Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-            shouldShowAlert: true,
-            shouldPlaySound: true,
-            shouldSetBadge: true,
-            shouldShowBanner: true,
-            shouldShowList: true,
-        }),
+        handleNotification: async (notification) => {
+            const data = notification.request.content.data;
+
+            // --- 🛡️ FILTRO DE DISPARO PRECOCE (UI SUPERIOR) 🛡️ ---
+            if (data && data.type === 'medication_alarm') {
+                const now = new Date();
+                const alarmTimeStr = (data as any).time;
+                const [h, m] = typeof alarmTimeStr === 'string' ? alarmTimeStr.split(':').map(Number) : [now.getHours(), now.getMinutes()];
+                const scheduledTime = new Date(now);
+                scheduledTime.setHours(h, m, 0, 0);
+
+                // Se for um alarme agendado para o futuro (mais de 1 min), silencia a UI superior
+                const diffMs = Math.abs(scheduledTime.getTime() - now.getTime());
+                if (diffMs > 60000) {
+                    return {
+                        shouldShowAlert: false,
+                        shouldPlaySound: false,
+                        shouldSetBadge: false,
+                        shouldShowBanner: false,
+                        shouldShowList: false,
+                    };
+                }
+            }
+
+            return {
+                shouldShowAlert: true,
+                shouldPlaySound: true,
+                shouldSetBadge: false,
+                shouldShowBanner: true,
+                shouldShowList: true,
+            };
+        },
     });
 }
 
@@ -85,32 +114,79 @@ export const requestNotificationPermissions = async () => {
     }
 };
 
-export const scheduleMedicationReminder = async (medName: string, time: string, reminderId: string, medicationId: string) => {
+export const scheduleMedicationReminder = async (
+    medName: string,
+    time: string,
+    reminderId: string,
+    medicationId: string,
+    userName?: string,
+    specificDate?: Date,
+    createdAt?: Date
+) => {
     if (Platform.OS === 'web') return null;
     try {
         const [hours, minutes] = time.split(':').map(Number);
         if (isNaN(hours) || isNaN(minutes)) return null;
 
-        const notificationId = await Notifications.scheduleNotificationAsync({
-            content: {
-                title: `🚨 HORA DO SEU REMÉDIO: ${medName.toUpperCase()}`,
-                body: `URGENTE: Sua dose de ${medName} está aguardando!`,
-                data: { reminderId, medicationId, type: 'medication_alarm', medName },
-                sound: 'default',
-                vibrate: [0, 1000, 800, 1000, 800, 1000],
-                priority: Notifications.AndroidNotificationPriority.MAX,
-                categoryIdentifier: 'medication',
-                color: '#FF0000',
-                interruptionLevel: 'timeSensitive',
-                sticky: true,
-            },
-            trigger: {
+        // --- ⌚ ALARME NO RELÓGIO NATIVO (ANDROID) ---
+        if (Platform.OS === 'android' && IntentLauncher) {
+            try {
+                await IntentLauncher.startActivityAsync('android.intent.action.SET_ALARM', {
+                    extra: {
+                        'android.intent.extra.alarm.HOUR': hours,
+                        'android.intent.extra.alarm.MINUTES': minutes,
+                        'android.intent.extra.alarm.MESSAGE': `Vitus: ${medName}`,
+                        'android.intent.extra.alarm.SKIP_UI': true,
+                        'android.intent.extra.alarm.VIBRATE': true,
+                    },
+                });
+                console.log('>>> Alarme Nativo Agendado com Sucesso!');
+            } catch (e) {
+                console.warn('Falha no alarme nativo:', e);
+            }
+        }
+
+        // --- 🔔 NOTIFICAÇÃO DO VITUS (COM OVERLAY) ---
+        const humanizedTitles = [
+            `💊 ${medName} está te esperando!`,
+            `⏰ Hora da dose: ${medName}`,
+        ];
+        const idx = Math.floor(Math.random() * humanizedTitles.length);
+
+        const triggerInput: any = specificDate
+            ? { date: specificDate }
+            : {
                 type: Notifications.SchedulableTriggerInputTypes.DAILY,
                 hour: hours,
                 minute: minutes,
-                channelId: 'medication_alert',
-            },
-        });
+            };
+
+        const now = new Date();
+        let notificationId = null;
+        
+        // Define o canal no trigger
+        if (triggerInput) {
+            triggerInput.channelId = 'medication_alert';
+        }
+
+        // Só agendamos se for o modo diário ou se a data específica for no futuro
+        if (!specificDate || (specificDate && specificDate > now)) {
+            notificationId = await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: humanizedTitles[idx],
+                    body: `Abra o Vitus para confirmar sua dose de ${medName}. ✅`,
+                    data: { reminderId, medicationId, type: 'medication_alarm', medName, time },
+                    sound: 'default',
+                    priority: Notifications.AndroidNotificationPriority.MAX,
+                    categoryIdentifier: 'medication',
+                    color: '#06815B',
+                    sticky: true,
+                    autoDismiss: false,
+                },
+                trigger: triggerInput,
+            });
+        }
+
         return notificationId;
     } catch (e) {
         return null;
@@ -120,24 +196,29 @@ export const scheduleMedicationReminder = async (medName: string, time: string, 
 export const scheduleSnooze = async (medName: string, minutes: number, data: any) => {
     if (Platform.OS === 'web') return;
     try {
+        const secondsDelay = minutes * 60;
         await Notifications.scheduleNotificationAsync({
             content: {
-                title: `⏰ LEMBRETE ADIADO: ${medName}`,
-                body: `Passaram-se ${minutes} minutos. Tome seu remédio!`,
+                title: `⏰ Lembrete: ${medName}`,
+                body: `Passaram ${minutes} minuto${minutes > 1 ? 's' : ''}. Que tal tomar sua dose agora? 🌿`,
                 data: data,
                 sound: true,
                 vibrate: [0, 250, 250, 250, 1000, 500, 1000, 500],
-                color: '#FF9800',
+                color: '#06815B',
                 priority: Notifications.AndroidNotificationPriority.MAX,
                 categoryIdentifier: 'medication',
             },
             trigger: {
-                seconds: minutes * 60,
+                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                seconds: secondsDelay,
                 channelId: 'medication_alert',
             },
         });
-    } catch (e) { }
+    } catch (e) {
+        console.error('Erro ao agendar snooze:', e);
+    }
 };
+
 
 export const cancelNotification = async (id: string) => {
     if (Platform.OS === 'web') return;
@@ -160,6 +241,8 @@ export const syncNotifications = async () => {
                 reminder_time,
                 frequency_hours,
                 medication_id,
+                duration_days,
+                created_at,
                 medications ( name )
             `);
 
@@ -173,19 +256,90 @@ export const syncNotifications = async () => {
 
             if (isNaN(hBase)) continue;
 
-            const cycles = Math.floor(24 / freq);
+            const isContinuous = !rem.duration_days;
 
-            for (let i = 0; i < cycles; i++) {
-                const h = (hBase + (i * freq)) % 24;
-                const timeStr = `${String(h).padStart(2, '0')}:${String(mBase).padStart(2, '0')}`;
+            if (isContinuous) {
+                // Diário eterno: usa o DAILY trigger original
+                const cycles = Math.floor(24 / freq);
+                for (let i = 0; i < cycles; i++) {
+                    const h = (hBase + (i * freq)) % 24;
+                    const timeStr = `${String(h).padStart(2, '0')}:${String(mBase).padStart(2, '0')}`;
+                    await scheduleMedicationReminder(medName, timeStr, rem.id, rem.medication_id, undefined, undefined, new Date(rem.created_at));
+                }
+            } else {
+                // Com duração fixa: agenda disparos únicos pelos próximos dias (max 7 dias de antecedência)
+                const startTreat = new Date(rem.created_at);
+                const endTreat = new Date(startTreat.getTime() + (rem.duration_days * 24 * 60 * 60 * 1000));
+                const now = new Date();
 
-                // Reutiliza a função schedule
-                await scheduleMedicationReminder(medName, timeStr, rem.id, rem.medication_id);
+                if (now > endTreat) continue;
+
+                for (let d = 0; d < 7; d++) {
+                    const targetDay = new Date();
+                    targetDay.setDate(now.getDate() + d);
+
+                    const cycles = Math.floor(24 / freq);
+                    for (let i = 0; i < cycles; i++) {
+                        const h = (hBase + (i * freq)) % 24;
+                        const slotDate = new Date(targetDay);
+                        slotDate.setHours(h, mBase, 0, 0);
+
+                        // Se for hoje e já passou há mais de 12 horas, ignora.
+                        // Caso contrário, permite chamar para que o alerta de "Dose Atrasada" funcione.
+                        if (d === 0 && (now.getTime() - slotDate.getTime() > 12 * 3600000)) continue;
+
+                        // Ignora se passar o fim do tratamento
+                        if (slotDate > endTreat) break;
+
+                        const timeStr = `${String(h).padStart(2, '0')}:${String(mBase).padStart(2, '0')}`;
+                        await scheduleMedicationReminder(medName, timeStr, rem.id, rem.medication_id, undefined, slotDate, new Date(rem.created_at));
+                    }
+                }
             }
         }
         console.log(`Synced ${reminders.length} reminders.`);
 
     } catch (e) {
         console.error("Sync failed", e);
+    }
+};
+
+export const getPushToken = async () => {
+    if (Platform.OS === 'web') return null;
+    try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+        if (finalStatus !== 'granted') return null;
+
+        const token = (await Notifications.getExpoPushTokenAsync()).data;
+        return token;
+    } catch (e) {
+        console.error('Error getting push token:', e);
+        return null;
+    }
+};
+
+export const registerPushToken = async (userId: string) => {
+    if (Platform.OS === 'web') return;
+    try {
+        const tokenData = await Notifications.getExpoPushTokenAsync();
+
+        if (tokenData?.data) {
+            const { error } = await (require('../services/supabase').supabase)
+                .from('push_tokens')
+                .upsert({
+                    user_id: userId,
+                    token: tokenData.data,
+                    platform: Platform.OS
+                }, { onConflict: 'user_id,token' });
+
+            if (error) console.error('Error saving push token:', error);
+        }
+    } catch (e) {
+        console.error('Failed to get push token:', e);
     }
 };

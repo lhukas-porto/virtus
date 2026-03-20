@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vitus",
     "slug": "vitus",
-    "version": "1.0.0",
+    "version": "1.0.12",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -10,10 +10,18 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#06815B"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lucas.vitus",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#06815B"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,13 +36,11 @@
         "WAKE_LOCK",
         "SCHEDULE_EXACT_ALARM",
         "SYSTEM_ALERT_WINDOW",
-        "USE_FULL_SCREEN_INTENT"
-      ],
-      "notifications": {
-        "fullScreenIntent": true,
-        "icon": "./assets/icon.png",
-        "color": "#06815B"
-      }
+        "USE_FULL_SCREEN_INTENT",
+        "SET_ALARM",
+        "RECORD_AUDIO",
+        "USE_BIOMETRIC"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -48,7 +54,19 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "expo-local-authentication"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "00b9840a-bbee-44c6-9872-a489797bb71d"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/00b9840a-bbee-44c6-9872-a489797bb71d"
+    }
   }
 }

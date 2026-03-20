@@ -22,7 +22,11 @@ import { HealthReportsScreen } from '../screens/HealthReportsScreen';
 import { ReportPreviewScreen } from '../screens/ReportPreviewScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MainNavigator } from './MainNavigator';
+import { PendingRemindersScreen } from '../screens/PendingRemindersScreen';
+import { CaregiverScreen } from '../screens/CaregiverScreen';
+import { CaregiverDashboardScreen } from '../screens/CaregiverDashboardScreen';
 import { PaywallScreen } from '../screens/PaywallScreen';
+import { AdherenceDashboard } from '../screens/AdherenceDashboard';
 
 const Stack = createStackNavigator();
 
@@ -37,8 +41,8 @@ export default function RootNavigation() {
         );
     }
 
-    // Se o trial acabou e não é premium, mostra apenas a tela de Paywall
-    const showPaywall = trialEnded && !isPremium;
+    // Temporarily disable paywall for testing (as requested)
+    const showPaywall = false; // trialEnded && !isPremium;
 
     return (
         <NavigationContainer theme={NavTheme}>
@@ -59,6 +63,10 @@ export default function RootNavigation() {
                         <Stack.Screen name="Reports" component={ReportsScreen} />
                         <Stack.Screen name="HealthReports" component={HealthReportsScreen} />
                         <Stack.Screen name="ReportPreview" component={ReportPreviewScreen} />
+                        <Stack.Screen name="PendingReminders" component={PendingRemindersScreen} />
+                        <Stack.Screen name="Caregiver" component={CaregiverScreen} />
+                        <Stack.Screen name="CaregiverDashboard" component={CaregiverDashboardScreen} />
+                        <Stack.Screen name="AdherenceDashboard" component={AdherenceDashboard} />
                     </>
                 )}
             </Stack.Navigator>

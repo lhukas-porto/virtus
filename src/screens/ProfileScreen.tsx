@@ -17,6 +17,8 @@ export const ProfileScreen = () => {
     const [name, setName] = useState(profile?.name || session?.user?.user_metadata?.name || '');
     const [cpf, setCpf] = useState(session?.user?.user_metadata?.cpf || '');
     const [phone, setPhone] = useState(session?.user?.user_metadata?.phone || '');
+    const [emergencyContact, setEmergencyContact] = useState(session?.user?.user_metadata?.emergency_contact_name || '');
+    const [emergencyPhone, setEmergencyPhone] = useState(session?.user?.user_metadata?.emergency_contact_phone || '');
     const [avatar, setAvatar] = useState(session?.user?.user_metadata?.avatar_url || null);
 
     const [isEditing, setIsEditing] = useState(false);
@@ -29,6 +31,8 @@ export const ProfileScreen = () => {
                 setName(meta.name || '');
                 setCpf(meta.cpf || '');
                 setPhone(meta.phone || '');
+                setEmergencyContact(meta.emergency_contact_name || '');
+                setEmergencyPhone(meta.emergency_contact_phone || '');
                 setAvatar(meta.avatar_url || null);
             }
         }
@@ -157,7 +161,9 @@ export const ProfileScreen = () => {
                 name,
                 cpf,
                 phone,
-                avatar_url: avatar
+                avatar_url: avatar,
+                emergency_contact_name: emergencyContact,
+                emergency_contact_phone: emergencyPhone,
             };
 
             const { error } = await supabase.auth.updateUser({
@@ -212,10 +218,40 @@ export const ProfileScreen = () => {
         );
     };
 
+    const handlePanic = async () => {
+        const contactPhone = emergencyPhone || session?.user?.user_metadata?.emergency_contact_phone;
+        const contactName = emergencyContact || session?.user?.user_metadata?.emergency_contact_name;
+        const myName = name || profile?.name || 'Usuário';
+
+        if (!contactPhone) {
+            const msg = "Você ainda não configurou um contato de emergência. Vá em Editar perfil para adicionar um.";
+            if (Platform.OS === 'web') window.alert(msg);
+            else showAlert('Contato não configurado', msg);
+            return;
+        }
+
+        const message = `🚨 ALERTA VITUS 🚨\n\nOlá${contactName ? `, ${contactName}` : ''}! Sou ${myName} e estou precisando de ajuda agora.\n\nEste é um alerta automático do meu app de saúde Vitus.\n\nPor favor, entre em contato comigo imediatamente! 🙏`;
+        const cleanPhone = contactPhone.replace(/\D/g, '');
+        const waUrl = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`;
+
+        if (Platform.OS === 'web') {
+            window.open(waUrl, '_blank');
+        } else {
+            Linking.openURL(waUrl).catch(() => {
+                showAlert('Erro', 'Não foi possível abrir o WhatsApp.');
+            });
+        }
+    };
+
     const handleLogout = async () => {
         if (Platform.OS === 'web') {
+            if (!window.confirm("Deseja realmente sair da sua conta?")) return;
             const { error } = await supabase.auth.signOut();
-            if (error) alert("Erro: " + error.message);
+            if (error) {
+                alert("Erro ao sair: " + error.message);
+            }
+            // AuthContext onAuthStateChange sets session to null,
+            // which causes RootNavigation to render Login automatically
             return;
         }
 
@@ -310,6 +346,24 @@ export const ProfileScreen = () => {
                                 keyboardType="numeric"
                                 maxLength={16}
                             />
+
+                            <Text style={styles.label}>Contato de Emergência (Nome)</Text>
+                            <TextInput
+                                value={emergencyContact}
+                                onChangeText={setEmergencyContact}
+                                style={styles.input}
+                                placeholder="Nome do familiar ou cuidador"
+                            />
+
+                            <Text style={styles.label}>Telefone do Contato de Emergência</Text>
+                            <TextInput
+                                value={emergencyPhone}
+                                onChangeText={(t) => setEmergencyPhone(formatPhone(t))}
+                                style={styles.input}
+                                placeholder="(00) 0 0000-0000"
+                                keyboardType="numeric"
+                                maxLength={16}
+                            />
                         </View>
                     ) : (
                         <>
@@ -325,6 +379,14 @@ export const ProfileScreen = () => {
                     <>
                         <View style={styles.menuSection}>
 
+                            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Caregiver')}>
+                                <View style={[styles.menuIcon, { backgroundColor: '#E8F5E9' }]}>
+                                    <Ionicons name="share-social-outline" size={24} color={theme.colors.primary} />
+                                </View>
+                                <Text style={styles.menuText}>Vitus Share (Cuidador)</Text>
+                                <Ionicons name="chevron-forward" size={20} color={theme.colors.border} />
+                            </TouchableOpacity>
+
                             <TouchableOpacity style={styles.menuItem} onPress={handleSupport}>
                                 <View style={styles.menuIcon}>
                                     <Ionicons name="help-circle-outline" size={24} color={theme.colors.text} />
@@ -332,7 +394,33 @@ export const ProfileScreen = () => {
                                 <Text style={styles.menuText}>Ajuda e Suporte</Text>
                                 <Ionicons name="chevron-forward" size={20} color={theme.colors.border} />
                             </TouchableOpacity>
+
+                            {/* Emergency Contact info */}
+                            {(emergencyContact || emergencyPhone) && (
+                                <TouchableOpacity style={styles.menuItem} onPress={handlePanic}>
+                                    <View style={[styles.menuIcon, { backgroundColor: '#FFF0EE' }]}>
+                                        <Ionicons name="call" size={24} color={theme.colors.alert} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.menuText}>Contato de Emergência</Text>
+                                        <Text style={{ fontSize: 13, fontFamily: theme.fonts.body, color: theme.colors.text, opacity: 0.5 }}>
+                                            {emergencyContact || emergencyPhone}
+                                        </Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color={theme.colors.border} />
+                                </TouchableOpacity>
+                            )}
                         </View>
+
+                        {/* Botão de Pânico */}
+                        <TouchableOpacity
+                            style={styles.panicButton}
+                            onPress={handlePanic}
+                            activeOpacity={0.85}
+                        >
+                            <Ionicons name="alert-circle" size={24} color="#FFF" style={{ marginRight: 10 }} />
+                            <Text style={styles.panicButtonText}>🆘 Chamar Ajuda Agora</Text>
+                        </TouchableOpacity>
 
                         <Button
                             title="Sair da Conta"
@@ -498,5 +586,25 @@ const styles = StyleSheet.create({
         opacity: 0.3,
         marginTop: 40,
         marginBottom: 20,
-    }
+    },
+    panicButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.alert,
+        borderRadius: 16,
+        paddingVertical: 18,
+        paddingHorizontal: 24,
+        marginVertical: 16,
+        shadowColor: theme.colors.alert,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    panicButtonText: {
+        color: '#FFF',
+        fontSize: 18,
+        fontFamily: theme.fonts.bold,
+    },
 });

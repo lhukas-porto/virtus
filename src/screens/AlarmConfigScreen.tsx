@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, ActivityIndicator, DeviceEventEmitter, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, ActivityIndicator, DeviceEventEmitter, Platform, Alert } from 'react-native';
 import { showAlert } from '../utils/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -75,9 +75,42 @@ export const AlarmConfigScreen = () => {
         setStartTime(formatted);
     };
 
-    const performSave = async () => {
+    const handleSave = async () => {
+        const [h, m] = startTime.split(':').map(Number);
+        const now = new Date();
+        const alarmTime = new Date();
+        alarmTime.setHours(h, m, 0, 0);
+
+        if (alarmTime < now && !isEditing) {
+            Alert.alert(
+                "Horário já passou",
+                "Você definiu um horário que já passou hoje. O que deseja fazer?",
+                [
+                    { text: "Corrigir Horário", style: "cancel" },
+                    {
+                        text: "Marcar como já tomado hoje",
+                        onPress: async () => {
+                            await performSave(true);
+                        }
+                    },
+                    {
+                        text: "Apenas agendar próximos",
+                        onPress: async () => {
+                            await performSave(false);
+                        }
+                    }
+                ]
+            );
+        } else {
+            await performSave(false);
+        }
+    };
+
+    const performSave = async (alreadyTakenToday: boolean) => {
         setLoading(true);
         try {
+            let savedReminderId = '';
+
             if (isEditing) {
                 // UPDATE
                 const { data, error } = await supabase
@@ -98,9 +131,10 @@ export const AlarmConfigScreen = () => {
                     showAlert('Erro', 'Registro original não encontrado. A atualização falhou.');
                     return;
                 }
+                savedReminderId = data[0].id;
             } else {
                 // INSERT
-                const { error } = await supabase
+                const { data, error } = await supabase
                     .from('medication_reminders')
                     .insert([{
                         medication_id: medicationId,
@@ -109,9 +143,21 @@ export const AlarmConfigScreen = () => {
                         dosage_quantity: dosageQuantity ? parseFloat(dosageQuantity) : null,
                         dosage_unit: dosageUnit,
                         duration_days: durationDays ? parseInt(durationDays, 10) : null
-                    }]);
+                    }])
+                    .select();
 
                 if (error) throw error;
+                savedReminderId = data?.[0]?.id;
+
+                // Log as taken today if requested
+                if (alreadyTakenToday && savedReminderId) {
+                    await supabase.from('medication_logs').insert([{
+                        reminder_id: savedReminderId,
+                        medication_id: medicationId,
+                        taken_at: new Date().toISOString(),
+                        status: 'taken'
+                    }]);
+                }
             }
 
             // Sync all notifications (safe approach)
@@ -139,7 +185,7 @@ export const AlarmConfigScreen = () => {
     };
 
     const performSaveOnlyFuture = async () => {
-        if (!slotTime) return performSave();
+        if (!slotTime) return handleSave();
 
         setLoading(true);
         try {
@@ -188,6 +234,37 @@ export const AlarmConfigScreen = () => {
             return;
         }
 
+        const [h, m] = startTime.split(':').map(Number);
+        const now = new Date();
+        const alarmTime = new Date();
+        alarmTime.setHours(h, m, 0, 0);
+
+        if (alarmTime < now && !isEditing) {
+            Alert.alert(
+                'Horário no Passado ⏰',
+                'Você escolheu um horário que já passou hoje. Como deseja prosseguir?',
+                [
+                    {
+                        text: 'Corrigir para Agora',
+                        onPress: () => {
+                            const newNow = new Date();
+                            setStartTime(`${String(newNow.getHours()).padStart(2, '0')}:${String(newNow.getMinutes()).padStart(2, '0')}`);
+                        }
+                    },
+                    {
+                        text: 'Marcar como Já Tomado',
+                        onPress: () => performSave(true)
+                    },
+                    {
+                        text: 'Ignorar Dose de Hoje',
+                        onPress: () => performSave(false)
+                    },
+                    { text: 'Cancelar', style: 'cancel' }
+                ]
+            );
+            return;
+        }
+
         if (selectedFreq <= 0) {
             showAlert('Ops', 'Informe uma frequência maior que zero.');
             return;
@@ -195,27 +272,20 @@ export const AlarmConfigScreen = () => {
 
         if (isEditing) {
             if (Platform.OS === 'web') {
-                // On web, simplified: just apply to all future
                 performSaveOnlyFuture();
             } else {
                 showAlert(
                     'Editar Alarme',
                     'Deseja aplicar esta nova hora para este evento e todos os próximos horários da série?',
                     [
-                        {
-                            text: 'Sim, aplicar para todos',
-                            onPress: performSaveOnlyFuture
-                        },
-                        {
-                            text: 'Apenas salvar como padrão',
-                            onPress: performSave
-                        },
+                        { text: 'Sim, aplicar para todos', onPress: performSaveOnlyFuture },
+                        { text: 'Apenas salvar como padrão', onPress: () => performSave(false) },
                         { text: 'Cancelar', style: 'cancel' }
                     ]
                 );
             }
         } else {
-            performSave();
+            handleSave();
         }
     };
 

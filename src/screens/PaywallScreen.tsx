@@ -49,28 +49,12 @@ export const PaywallScreen = () => {
             </View>
 
             <View style={styles.plans}>
-                <TouchableOpacity style={styles.planCard} onPress={() => handlePurchase('Mensal')}>
+                <TouchableOpacity style={[styles.planCard, styles.planCardFeatured]} onPress={() => handlePurchase('Vitalício')}>
                     <View>
-                        <Text style={styles.planName}>Mensal</Text>
-                        <Text style={styles.planPrice}>R$ 9,90</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={24} color={theme.colors.primary} />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.planCard, styles.planCardFeatured]} onPress={() => handlePurchase('Anual')}>
-                    <View>
-                        <Text style={[styles.planName, { color: '#FFF' }]}>Anual (Economize 20%)</Text>
-                        <Text style={[styles.planPrice, { color: '#FFF' }]}>R$ 89,90</Text>
+                        <Text style={[styles.planName, { color: '#FFF' }]}>Acesso Vitalício (PROMOÇÃO)</Text>
+                        <Text style={[styles.planPrice, { color: '#FFF' }]}>R$ 9,90</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={24} color="#FFF" />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.planCard} onPress={() => handlePurchase('Vitalício')}>
-                    <View>
-                        <Text style={styles.planName}>Vitalício</Text>
-                        <Text style={styles.planPrice}>R$ 149,90</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={24} color={theme.colors.primary} />
                 </TouchableOpacity>
             </View>
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform, Share, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { theme } from '../theme/theme';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { getMedicationHTML } from '../services/medicationReport';
+import { supabase } from '../services/supabase';
 
 export const ReportsScreen = ({ navigation }: any) => {
     const { profile, session } = useAuth();
@@ -16,6 +17,9 @@ export const ReportsScreen = ({ navigation }: any) => {
     const [showStartPicker, setShowStartPicker] = useState(false);
     const [showEndPicker, setShowEndPicker] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [convLoading, setConvLoading] = useState(false);
+    const [convReport, setConvReport] = useState<string | null>(null);
+    const [showConvModal, setShowConvModal] = useState(false);
 
     const handleGenerate = async () => {
         setLoading(true);
@@ -61,6 +65,92 @@ export const ReportsScreen = ({ navigation }: any) => {
         if (event.type === 'set' && selectedDate) {
             if (type === 'start') setCustomStart(selectedDate);
             if (type === 'end') setCustomEnd(selectedDate);
+        }
+    };
+
+    const generateConversationalReport = async () => {
+        if (!session?.user?.id) return;
+        setConvLoading(true);
+        try {
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            const userName = profile?.name || session?.user?.user_metadata?.name || 'Paciente';
+            const firstName = userName.split(' ')[0];
+
+            // Fetch medication reminders
+            const { data: reminders } = await supabase
+                .from('medication_reminders')
+                .select('*, medications(*)')
+                .eq('medications.profile_id', session.user.id);
+
+            // Fetch logs last 7 days
+            const { data: logs } = await supabase
+                .from('medication_logs')
+                .select('*')
+                .eq('status', 'taken')
+                .gte('taken_at', sevenDaysAgo.toISOString());
+
+            // Fetch vitals last 7 days
+            const { data: vitals } = await supabase
+                .from('health_measurements')
+                .select('*')
+                .eq('profile_id', session.user.id)
+                .gte('measured_at', sevenDaysAgo.toISOString())
+                .order('measured_at', { ascending: false });
+
+            const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+            // Build medications list
+            const medNames = [...new Set((reminders || []).map((r: any) => r.medications?.name).filter(Boolean))];
+            const totalLogs = logs?.length || 0;
+
+            // Vitals averages
+            let vitalsText = 'Não há registros de sinais vitais nesta semana.';
+            if (vitals && vitals.length > 0) {
+                const avgSys = Math.round(vitals.reduce((a: number, v: any) => a + v.systolic, 0) / vitals.length);
+                const avgDia = Math.round(vitals.reduce((a: number, v: any) => a + v.diastolic, 0) / vitals.length);
+                const withHR = vitals.filter((v: any) => v.heart_rate);
+                const avgHR = withHR.length ? Math.round(withHR.reduce((a: number, v: any) => a + v.heart_rate, 0) / withHR.length) : null;
+                const avgMoods = vitals.filter((v: any) => v.mood);
+                const avgMood = avgMoods.length ? (avgMoods.reduce((a: number, v: any) => a + v.mood, 0) / avgMoods.length).toFixed(1) : null;
+                vitalsText = `Pressão média: ${avgSys}x${avgDia} mmHg${avgHR ? `. Batimentos médios: ${avgHR} bpm` : ''}.${avgMood ? ` Bem-estar médio: ${avgMood}/5` : ''}`;
+            }
+
+            const report = `Relatório Semanal de Saúde — ${firstName}
+${'='.repeat(40)}
+Data: ${today}
+Paciente: ${userName}
+
+Olá, Doutor(a)!
+
+Segue o resumo da última semana de ${firstName}:
+
+💊 MEDICAMENTOS EM USO:
+${medNames.length > 0 ? medNames.map(m => `• ${m}`).join('\n') : '• Nenhum medicamento cadastrado'}
+
+📊 DOSES REGISTRADAS (7 dias):
+${totalLogs} dose(s) confirmada(s) pelo usuário no app.
+
+🩺 SINAIS VITAIS (média da semana):
+${vitalsText}
+
+💬 Este relatório foi gerado automaticamente pelo app Vitus — Assistente de Saúde.`;
+
+            setConvReport(report);
+            setShowConvModal(true);
+        } catch (e: any) {
+            Alert.alert('Erro', 'Não foi possível gerar o resumo.');
+        } finally {
+            setConvLoading(false);
+        }
+    };
+
+    const handleShareReport = async () => {
+        if (!convReport) return;
+        try {
+            await Share.share({ message: convReport, title: 'Relatório Vitus' });
+        } catch (e) {
+            console.error(e);
         }
     };
 
@@ -143,8 +233,41 @@ export const ReportsScreen = ({ navigation }: any) => {
                         disabled={loading}
                     />
                 </View>
+                <View style={[styles.card, { marginTop: 16 }]}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={48} color={theme.colors.primary} style={{ marginBottom: 16 }} />
+                    <Text style={styles.cardTitle}>Resumo para o Médico</Text>
+                    <Text style={styles.cardDesc}>
+                        Gera um texto em linguagem natural com seus medicamentos, doses confirmadas, pressão arterial média e bem-estar da última semana.
+                    </Text>
+
+                    <Button
+                        title={convLoading ? "Gerando..." : "Gerar Resumo"}
+                        onPress={generateConversationalReport}
+                        style={{ marginTop: 20, width: '100%' }}
+                        disabled={convLoading}
+                    />
+                </View>
 
             </ScrollView>
+
+            {/* Modal do Relatório Conversacional */}
+            <Modal visible={showConvModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowConvModal(false)}>
+                <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Resumo para o Médico</Text>
+                        <TouchableOpacity onPress={() => setShowConvModal(false)}>
+                            <Ionicons name="close" size={28} color={theme.colors.text} />
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24 }}>
+                        <Text style={styles.reportText}>{convReport}</Text>
+                    </ScrollView>
+                    <View style={{ padding: 24 }}>
+                        <Button title="Compartilhar" onPress={handleShareReport} icon="share-outline" />
+                    </View>
+                </SafeAreaView>
+            </Modal>
+
         </SafeAreaView>
     );
 };
@@ -250,5 +373,30 @@ const styles = StyleSheet.create({
         color: '#666',
         textAlign: 'center',
         lineHeight: 20,
-    }
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+        backgroundColor: '#FFF',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontFamily: theme.fonts.heading,
+        color: theme.colors.text,
+    },
+    reportText: {
+        fontSize: 15,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.text,
+        lineHeight: 24,
+        backgroundColor: '#FFF',
+        padding: 20,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#EFEFEF',
+    },
 });

@@ -7,8 +7,11 @@ import { theme } from '../theme/theme';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { getHealthHTML } from '../services/reports';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
-export const HealthReportsScreen = ({ navigation }: any) => {
+export const HealthReportsScreen = () => {
+    const navigation = useNavigation<any>();
+    const route = useRoute<any>();
     const { profile, session } = useAuth();
     const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'custom'>('week');
     const [customStart, setCustomStart] = useState(new Date());
@@ -20,6 +23,11 @@ export const HealthReportsScreen = ({ navigation }: any) => {
     const handleGenerate = async () => {
         setLoading(true);
         try {
+            const patientId = route?.params?.patientId || session?.user?.id;
+            const patientName = route?.params?.patientName || profile?.name || session?.user?.user_metadata?.name || session?.user?.email || 'Usuário';
+
+            if (!patientId) throw new Error("Usuário não identificado.");
+
             let start = new Date();
             let end = new Date();
 
@@ -39,12 +47,11 @@ export const HealthReportsScreen = ({ navigation }: any) => {
                 end = customEnd;
             }
 
-            const userName = profile?.name || session?.user?.user_metadata?.name || session?.user?.email || 'Usuário';
-            const html = await getHealthHTML(userName, start, end);
+            const html = await getHealthHTML(patientName, start, end, patientId);
 
             navigation.navigate('ReportPreview', {
                 html,
-                title: 'Relatório de Sinais Vitais'
+                title: `Relatório: ${patientName.split(' ')[0]}`
             });
 
         } catch (error: any) {
@@ -63,6 +70,7 @@ export const HealthReportsScreen = ({ navigation }: any) => {
             if (type === 'end') setCustomEnd(selectedDate);
         }
     };
+
 
     return (
         <SafeAreaView style={styles.safeArea}>

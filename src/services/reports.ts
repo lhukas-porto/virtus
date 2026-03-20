@@ -4,10 +4,13 @@ import { Platform } from 'react-native';
 import { theme } from '../theme/theme';
 import { supabase } from './supabase';
 
+import { VITUS_LOGO_BASE64 } from '../utils/logoBase64';
+
 export const getHealthHTML = async (
   userName: string,
   periodStart: Date,
-  periodEnd: Date
+  periodEnd: Date,
+  profileId: string
 ) => {
   // 1. Fetch Data
   const start = new Date(periodStart);
@@ -19,6 +22,7 @@ export const getHealthHTML = async (
   const { data: measurements, error } = await supabase
     .from('health_measurements')
     .select('*')
+    .eq('profile_id', profileId)
     .gte('measured_at', start.toISOString())
     .lte('measured_at', end.toISOString())
     .order('measured_at', { ascending: true });
@@ -39,7 +43,7 @@ export const getHealthHTML = async (
         <style>
           body { font-family: 'Helvetica', sans-serif; padding: 20px; color: #333; }
           .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid ${theme.colors.primary}; padding-bottom: 20px; margin-bottom: 30px; }
-          .logo { font-size: 32px; font-weight: bold; color: ${theme.colors.primary}; }
+          .logo { height: 40px; object-fit: contain; }
           .info { margin-bottom: 20px; font-size: 14px; }
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 12px; }
@@ -51,7 +55,7 @@ export const getHealthHTML = async (
       </head>
       <body>
         <div class="header">
-            <div class="logo">Vitus</div>
+            <img class="logo" src="${VITUS_LOGO_BASE64}" alt="Vitus" />
             <div style="text-align: right;">Relatório de Sinais Vitais</div>
         </div>
 
@@ -70,21 +74,24 @@ export const getHealthHTML = async (
         <table>
           <thead>
             <tr>
-              <th width="25%">Data</th>
-              <th width="20%">Hora</th>
-              <th width="35%">Pressão Arterial</th>
-              <th width="20%">Pulso</th>
+              <th width="15%">Data</th>
+              <th width="15%">Hora</th>
+              <th width="20%">Pressão (S/D)</th>
+              <th width="15%">Pulso</th>
+              <th width="35%">Humor / Notas</th>
             </tr>
           </thead>
           <tbody>
           ${measurements.map(m => {
     const dateObj = new Date(m.measured_at);
+    const moodEmojis: any = { 1: '😞', 2: '😕', 3: '😐', 4: '🙂', 5: '😊' };
     return `
             <tr>
               <td>${dateObj.toLocaleDateString('pt-BR')}</td>
               <td>${dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
-              <td>${m.systolic}/${m.diastolic} mmHg</td>
-              <td>${m.heart_rate ? `${m.heart_rate} bpm` : '--'}</td>
+              <td>${m.systolic}/${m.diastolic}</td>
+              <td>${m.heart_rate ? `${m.heart_rate}` : '--'}</td>
+              <td>${m.mood ? moodEmojis[m.mood] + ' ' : ''}${m.notes || '--'}</td>
             </tr>
           `}).join('')}
           </tbody>
@@ -101,9 +108,10 @@ export const getHealthHTML = async (
 export const generateHealthReport = async (
   userName: string,
   periodStart: Date,
-  periodEnd: Date
+  periodEnd: Date,
+  profileId: string
 ) => {
-  const html = await getHealthHTML(userName, periodStart, periodEnd);
+  const html = await getHealthHTML(userName, periodStart, periodEnd, profileId);
 
 
   if (Platform.OS === 'web') {

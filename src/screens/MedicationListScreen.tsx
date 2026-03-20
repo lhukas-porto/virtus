@@ -15,12 +15,14 @@ export const MedicationListScreen = () => {
     const navigation = useNavigation<any>();
     const [medications, setMedications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [initialLoading, setInitialLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const fetchMedications = async () => {
+    const fetchMedications = async (showLoading = false) => {
         if (!session?.user?.id) return;
         try {
-            setLoading(true);
+            if (showLoading) setRefreshing(true);
             const { data, error } = await supabase
                 .from('medications')
                 .select('*')
@@ -33,12 +35,14 @@ export const MedicationListScreen = () => {
             console.error('Erro ao carregar medicamentos:', e);
         } finally {
             setLoading(false);
+            setInitialLoading(false);
+            setRefreshing(false);
         }
     };
 
     useFocusEffect(
         React.useCallback(() => {
-            fetchMedications();
+            fetchMedications(medications.length === 0);
         }, [session])
     );
 

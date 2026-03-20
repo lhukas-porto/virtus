@@ -55,6 +55,49 @@ export const AddMedicationScreen = () => {
     const [myMedications, setMyMedications] = useState<any[]>([]);
     const [showMedSelector, setShowMedSelector] = useState(false);
 
+    const [nameSuggestions, setNameSuggestions] = useState<any[]>([]);
+    const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+
+    const handleNameChange = async (text: string) => {
+        setName(text);
+        if (text.length > 2) {
+            try {
+                const { data } = await supabase
+                    .from('medication_catalog')
+                    .select('name, brand, image_url, description, ean')
+                    .ilike('name', `%${text}%`)
+                    .limit(5);
+
+                if (data && data.length > 0) {
+                    // Remover duplicados por nome (caso existam)
+                    const uniqueNames = Array.from(new Set(data.map(a => a.name)))
+                        .map(name => {
+                            return data.find(a => a.name === name);
+                        });
+                    setNameSuggestions(uniqueNames);
+                    setShowNameSuggestions(true);
+                } else {
+                    setNameSuggestions([]);
+                    setShowNameSuggestions(false);
+                }
+            } catch (e) {
+                console.log('Erro ao buscar sugestões:', e);
+            }
+        } else {
+            setNameSuggestions([]);
+            setShowNameSuggestions(false);
+        }
+    };
+
+    const handleSelectSuggestion = (suggestion: any) => {
+        setName(suggestion.name);
+        if (suggestion.brand && !brand) setBrand(suggestion.brand);
+        if (suggestion.image_url && !image) setImage(suggestion.image_url);
+        if (suggestion.description && (!instructions || instructions === 'Cadastrado no Vitus')) setInstructions(suggestion.description);
+        if (suggestion.ean && !ean) setEan(suggestion.ean);
+        setShowNameSuggestions(false);
+    };
+
     useEffect(() => {
         fetchMyMedications();
     }, []);
@@ -119,7 +162,12 @@ export const AddMedicationScreen = () => {
             quality: 0.85,
         });
         if (!result.canceled) {
-            setImage(result.assets[0].uri);
+            const asset = result.assets[0];
+            if (Platform.OS !== 'web' && asset.type !== 'image') {
+                Alert.alert('Erro', 'Por favor, selecione apenas imagens (JPG/PNG).');
+                return;
+            }
+            setImage(asset.uri);
         }
     };
 
@@ -307,10 +355,15 @@ export const AddMedicationScreen = () => {
         <>
             <SafeAreaView style={styles.safeArea}>
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={{ flex: 1 }}
+                    enabled={Platform.OS !== 'web'}
                 >
-                    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+                    <ScrollView
+                        contentContainerStyle={styles.container}
+                        showsVerticalScrollIndicator={false}
+                        style={Platform.OS === 'web' ? { flex: 1, overflowY: 'auto' } as any : { flex: 1 }}
+                    >
                         <View style={styles.header}>
                             <TouchableOpacity
                                 onPress={() => navigation.goBack()}
@@ -395,14 +448,36 @@ export const AddMedicationScreen = () => {
 
                             <Card style={styles.mainCard}>
                                 {/* Nome */}
-                                <View style={styles.inputGroup}>
+                                <View style={[styles.inputGroup, { zIndex: 10 }]}>
                                     <Text style={styles.label}>Medicamento</Text>
                                     <TextInput
                                         style={styles.input}
                                         value={name}
-                                        onChangeText={setName}
+                                        onChangeText={handleNameChange}
                                         placeholder="Nome do remédio"
+                                        onFocus={() => {
+                                            if (name.length > 2 && nameSuggestions.length > 0) {
+                                                setShowNameSuggestions(true);
+                                            }
+                                        }}
                                     />
+                                    {showNameSuggestions && nameSuggestions.length > 0 && (
+                                        <Card style={styles.suggestionsCard}>
+                                            {nameSuggestions.map((sugg, idx) => (
+                                                <TouchableOpacity
+                                                    key={`sugg-${idx}`}
+                                                    style={styles.suggestionItem}
+                                                    onPress={() => handleSelectSuggestion(sugg)}
+                                                >
+                                                    <View>
+                                                        <Text style={styles.suggestionName}>{sugg.name}</Text>
+                                                        {sugg.brand && <Text style={styles.suggestionBrand}>{sugg.brand}</Text>}
+                                                    </View>
+                                                    <Ionicons name="add-circle-outline" size={20} color={theme.colors.primary} />
+                                                </TouchableOpacity>
+                                            ))}
+                                        </Card>
+                                    )}
                                 </View>
 
                                 {/* Laboratório */}
@@ -534,6 +609,13 @@ export const AddMedicationScreen = () => {
                                 </View>
                             </Card>
 
+                            <View style={styles.privacyNote}>
+                                <Ionicons name="information-circle-outline" size={16} color={theme.colors.text} style={{ opacity: 0.5 }} />
+                                <Text style={styles.privacyNoteText}>
+                                    O código de barras e foto podem ajudar outros usuários a encontrar o remédio. Certifique-se de que a foto NÃO contém dados pessoais legíveis.
+                                </Text>
+                            </View>
+
                             <Button
                                 title={editMedication ? "Salvar Alterações" : "Salvar Medicamento"}
                                 onPress={handleSaveMedication}
@@ -591,6 +673,37 @@ const styles = StyleSheet.create({
         maxWidth: 600,
         width: '100%',
         alignSelf: 'center',
+    },
+    suggestionsCard: {
+        position: 'absolute',
+        top: 85,
+        left: 0,
+        right: 0,
+        zIndex: 999,
+        maxHeight: 250,
+        padding: 0,
+        borderWidth: 1,
+        borderColor: theme.colors.primary + '30',
+        backgroundColor: '#FFF'
+    },
+    suggestionItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    suggestionName: {
+        fontSize: 16,
+        fontFamily: theme.fonts.bold,
+        color: theme.colors.text,
+    },
+    suggestionBrand: {
+        fontSize: 12,
+        fontFamily: theme.fonts.body,
+        color: '#666',
+        marginTop: 2,
     },
     header: {
         marginBottom: 24,
@@ -949,5 +1062,20 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.6)',
         borderRadius: 20,
         padding: 8,
+    },
+    privacyNote: {
+        flexDirection: 'row',
+        paddingHorizontal: 24,
+        paddingBottom: 20,
+        gap: 8,
+        alignItems: 'center',
+    },
+    privacyNoteText: {
+        fontSize: 11,
+        fontFamily: theme.fonts.body,
+        color: theme.colors.text,
+        opacity: 0.5,
+        lineHeight: 14,
+        flex: 1,
     },
 });
