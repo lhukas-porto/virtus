@@ -38,12 +38,9 @@ export const LoginScreen = () => {
 
     const loadLastUser = async () => {
         try {
-            // AsyncStorage é mais resiliente para salvar o e-mail (dado não sensível)
             const lastEmail = await AsyncStorage.getItem(LAST_USER_EMAIL_KEY);
             if (lastEmail) {
-                console.log('--- 📧 MEMÓRIA ENCONTRADA:', lastEmail);
-                // Pequeno delay garante que o campo está pronto para o estado
-                setTimeout(() => setEmail(lastEmail), 300);
+                setEmail(lastEmail);
             }
         } catch (e) {
             console.warn('Erro ao carregar último usuário:', e);
@@ -107,24 +104,25 @@ export const LoginScreen = () => {
         }
     };
 
-    // Gatilho automático ao digitar o e-mail
+    // Gatilho automático de biometria quando a tela abre com e-mail preenchido
     useEffect(() => {
         if (!biometricEnabled || !email || email.length < 5 || loading) return;
 
-        const checkEmailAndLogin = async () => {
+        const autoTrigger = async () => {
             const credsJson = await SecureStore.getItemAsync(BIOMETRIC_CREDS_KEY);
             if (!credsJson) return;
             const creds = JSON.parse(credsJson);
-
-            // Se o e-mail digitado bater com o salvo, dispara a biometria
             if (email.toLowerCase().trim() === creds.email.toLowerCase().trim()) {
                 handleBiometricLogin();
             }
         };
 
-        const timer = setTimeout(checkEmailAndLogin, 500); // Pequeno delay no typing
+        // Delay de 600ms para garantir que a tela está completamente renderizada
+        const timer = setTimeout(autoTrigger, 600);
         return () => clearTimeout(timer);
-    }, [email, biometricEnabled]);
+    // Só dispara quando biometricEnabled ou email mudam (não em cada render)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [biometricEnabled, email]);
 
     const promptEnableBiometric = (userEmail: string, userPass: string) => {
         const typeLabel = biometricType === 'faceid' ? 'Face ID' : biometricType === 'iris' ? 'íris' : 'digital';
@@ -200,8 +198,8 @@ export const LoginScreen = () => {
                 if (error) {
                     setLoginError(error.message);
                 } else {
-                    // Login bem-sucedido -> Lembrar e-mail
-                    await SecureStore.setItemAsync(LAST_USER_EMAIL_KEY, email.toLowerCase().trim());
+                    // Login bem-sucedido -> Lembrar e-mail (AsyncStorage - dado não sensível)
+                    await AsyncStorage.setItem(LAST_USER_EMAIL_KEY, email.toLowerCase().trim());
                     
                     if (biometricAvailable && !biometricEnabled && Platform.OS !== 'web') {
                         promptEnableBiometric(email, password);
@@ -232,8 +230,8 @@ export const LoginScreen = () => {
                 if (error) {
                     setLoginError(error.message);
                 } else {
-                    // Cadastro bem-sucedido -> Lembrar e-mail
-                    await SecureStore.setItemAsync(LAST_USER_EMAIL_KEY, email.toLowerCase().trim());
+                    // Cadastro bem-sucedido -> Lembrar e-mail (AsyncStorage - dado não sensível)
+                    await AsyncStorage.setItem(LAST_USER_EMAIL_KEY, email.toLowerCase().trim());
                     
                     if (Platform.OS === 'web') window.alert(`Bem-vindo, ${firstName}! Conta criada com sucesso.`);
                     else Alert.alert('Sucesso', `Bem-vindo, ${firstName}! Conta criada com sucesso.`);
