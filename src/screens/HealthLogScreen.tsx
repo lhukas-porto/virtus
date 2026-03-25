@@ -28,6 +28,7 @@ export const HealthLogScreen = () => {
     const [systolic, setSystolic] = useState('');
     const [diastolic, setDiastolic] = useState('');
     const [heartRate, setHeartRate] = useState('');
+    const [bloodGlucose, setBloodGlucose] = useState('');
     const [mood, setMood] = useState<number | null>(null);
     const [notes, setNotes] = useState('');
     const [history, setHistory] = useState<any[]>([]);
@@ -39,6 +40,7 @@ export const HealthLogScreen = () => {
     const [editSystolic, setEditSystolic] = useState('');
     const [editDiastolic, setEditDiastolic] = useState('');
     const [editHeartRate, setEditHeartRate] = useState('');
+    const [editBloodGlucose, setEditBloodGlucose] = useState('');
     const [editLoading, setEditLoading] = useState(false);
 
 
@@ -90,6 +92,7 @@ export const HealthLogScreen = () => {
                     systolic: Math.round(parseFloat(systolic.replace(',', '.')) * 10),
                     diastolic: Math.round(parseFloat(diastolic.replace(',', '.')) * 10),
                     heart_rate: heartRate ? parseInt(heartRate) : null,
+                    blood_glucose: bloodGlucose ? parseInt(bloodGlucose) : null,
                     mood: mood,
                     notes: notes,
                 },
@@ -103,6 +106,7 @@ export const HealthLogScreen = () => {
             setSystolic('');
             setDiastolic('');
             setHeartRate('');
+            setBloodGlucose('');
             setMood(null);
             setNotes('');
             fetchHistory();
@@ -119,6 +123,7 @@ export const HealthLogScreen = () => {
         setEditSystolic(String(item.systolic));
         setEditDiastolic(String(item.diastolic));
         setEditHeartRate(item.heart_rate ? String(item.heart_rate) : '');
+        setEditBloodGlucose(item.blood_glucose ? String(item.blood_glucose) : '');
     };
 
     const handleUpdate = async () => {
@@ -135,6 +140,7 @@ export const HealthLogScreen = () => {
                     systolic: Math.round(parseFloat(editSystolic.replace(',', '.')) * 10),
                     diastolic: Math.round(parseFloat(editDiastolic.replace(',', '.')) * 10),
                     heart_rate: editHeartRate ? parseInt(editHeartRate) : null,
+                    blood_glucose: editBloodGlucose ? parseInt(editBloodGlucose) : null,
                 })
                 .eq('id', editingItem.id);
 
@@ -215,6 +221,24 @@ export const HealthLogScreen = () => {
                                     maxLength={3}
                                 />
                                 <Text style={styles.unitInline}>bpm</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.divider} />
+
+                        <View style={styles.inputSection}>
+                            <Text style={styles.sectionLabel}>Glicemia (mg/dL)</Text>
+                            <View style={styles.heartRateContainer}>
+                                <Ionicons name="water" size={24} color="#D81B60" style={{ marginRight: 12 }} />
+                                <TextInput
+                                    style={styles.midInput}
+                                    value={bloodGlucose}
+                                    onChangeText={setBloodGlucose}
+                                    placeholder="95"
+                                    keyboardType="numeric"
+                                    maxLength={3}
+                                />
+                                <Text style={styles.unitInline}>mg/dL</Text>
                             </View>
                         </View>
                     </Card>
@@ -313,7 +337,7 @@ export const HealthLogScreen = () => {
                                     <View style={styles.historyContent}>
                                         <Text style={styles.historyPA}>{item.systolic}/{item.diastolic}</Text>
                                         <Text style={styles.historySub}>
-                                            <Ionicons name="heart-outline" size={14} /> {item.heart_rate || '--'} bpm • {new Date(item.measured_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                            <Ionicons name="heart-outline" size={14} /> {item.heart_rate || '--'} bpm {item.blood_glucose ? `• 🩸 ${item.blood_glucose} mg/dL` : ''} • {new Date(item.measured_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                         </Text>
                                     </View>
                                     {item.mood && (
@@ -399,6 +423,21 @@ export const HealthLogScreen = () => {
                                 placeholderTextColor={theme.colors.text + '40'}
                             />
                             <Text style={styles.modalBpmLabel}>bpm</Text>
+                        </View>
+
+                        <Text style={[styles.modalLabel, { marginTop: 16 }]}>Glicemia (mg/dL)</Text>
+                        <View style={styles.modalHeartRow}>
+                            <Ionicons name="water" size={20} color="#D81B60" />
+                            <TextInput
+                                style={[styles.modalInput, { marginLeft: 10, minWidth: 60 }]}
+                                value={editBloodGlucose}
+                                onChangeText={setEditBloodGlucose}
+                                keyboardType="numeric"
+                                maxLength={3}
+                                placeholder="95"
+                                placeholderTextColor={theme.colors.text + '40'}
+                            />
+                            <Text style={styles.modalBpmLabel}>mg/dL</Text>
                         </View>
 
                         <View style={styles.modalActions}>

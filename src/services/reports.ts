@@ -74,11 +74,12 @@ export const getHealthHTML = async (
         <table>
           <thead>
             <tr>
-              <th width="15%">Data</th>
-              <th width="15%">Hora</th>
-              <th width="20%">Pressão (S/D)</th>
-              <th width="15%">Pulso</th>
-              <th width="35%">Humor / Notas</th>
+              <th width="13%">Data</th>
+              <th width="12%">Hora</th>
+              <th width="18%">Pressão (S/D)</th>
+              <th width="12%">Pulso</th>
+              <th width="15%">Glicemia</th>
+              <th width="30%">Humor / Notas</th>
             </tr>
           </thead>
           <tbody>
@@ -90,7 +91,8 @@ export const getHealthHTML = async (
               <td>${dateObj.toLocaleDateString('pt-BR')}</td>
               <td>${dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
               <td>${m.systolic}/${m.diastolic}</td>
-              <td>${m.heart_rate ? `${m.heart_rate}` : '--'}</td>
+              <td>${m.heart_rate ? `${m.heart_rate} bpm` : '--'}</td>
+              <td>${m.blood_glucose ? `${m.blood_glucose} mg/dL` : '--'}</td>
               <td>${m.mood ? moodEmojis[m.mood] + ' ' : ''}${m.notes || '--'}</td>
             </tr>
           `}).join('')}

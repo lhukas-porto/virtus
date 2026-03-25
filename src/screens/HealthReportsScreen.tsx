@@ -141,7 +141,7 @@ export const HealthReportsScreen = () => {
                     <Ionicons name="stats-chart-outline" size={48} color={theme.colors.primary} style={{ marginBottom: 16 }} />
                     <Text style={styles.cardTitle}>Gerar Relatório de Sinais Vitais</Text>
                     <Text style={styles.cardDesc}>
-                        Gera um arquivo PDF contendo seu histórico de pressão arterial e batimentos cardíacos no período selecionado.
+                        Gera um arquivo PDF contendo seu histórico de pressão arterial, batimentos cardíacos e glicemia no período selecionado.
                     </Text>
 
                     <Button
