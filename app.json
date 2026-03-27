@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vitus",
     "slug": "vitus",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -62,7 +62,9 @@
         "projectId": "00b9840a-bbee-44c6-9872-a489797bb71d"
       }
     },
-    "runtimeVersion": "1.0.18-GLICEMIA",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/00b9840a-bbee-44c6-9872-a489797bb71d"
     }
