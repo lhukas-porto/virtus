@@ -389,7 +389,7 @@ export const LoginScreen = () => {
 
             <View style={styles.footerBranding}>
                 <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.brandingLabel, { color: 'red', fontFamily: theme.fonts.bold, opacity: 1 }]}>v1.0.19-FIX-TRIGGER</Text>
+                    <Text style={[styles.brandingLabel, { color: 'red', fontFamily: theme.fonts.bold, opacity: 1 }]}>v1.0.19-STABLE-ALARM</Text>
                     <Text style={styles.brandingLabel}>Desenvolvido por</Text>
                 </View>
                 <Image

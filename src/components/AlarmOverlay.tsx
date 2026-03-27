@@ -65,10 +65,20 @@ export const AlarmOverlay = () => {
                     scheduledTime.setHours(h, m, 0, 0);
 
                     const diffMs = Math.abs(scheduledTime.getTime() - now.getTime());
-                    const twoMinutes = 120000;
+                    const thirtyMinutes = 30 * 60 * 1000;
                     
-                    // Se o alarme for para mais tarde hoje ou se for de muitas horas atrás, bloqueia.
-                    if (diffMs > twoMinutes) {
+                    // 1. Bloqueia se foi agendado há menos de 5 segundos (bug do agendamento)
+                    const scheduledAt = (data as any).scheduledAt;
+                    if (scheduledAt) {
+                        const ageMs = now.getTime() - new Date(scheduledAt).getTime();
+                        if (ageMs < 5000) {
+                            console.log(`--- [OVERLAY BLOQUEADO] Disparo imediato detectado (${Math.round(ageMs)}ms) ---`);
+                            return;
+                        }
+                    }
+
+                    // 2. Bloqueia se a diferença for maior que 30 minutos
+                    if (diffMs > thirtyMinutes) {
                         console.log(`--- [OVERLAY BLOQUEADO] Hora Alarme: ${alarmTimeStr}, Agora: ${now.getHours()}:${now.getMinutes()} ---`);
                         return;
                     }

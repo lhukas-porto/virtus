@@ -12,7 +12,7 @@ if (Platform.OS !== 'web') {
         handleNotification: async (notification) => {
             const data = notification.request.content.data;
 
-            // --- 🛡️ FILTRO DE DISPARO PRECOCE (UI SUPERIOR) 🛡️ ---
+            // --- 🛡️ FILTRO DE DISPARO "NÃO É A HORA" 🛡️ ---
             if (data && data.type === 'medication_alarm') {
                 const now = new Date();
                 const alarmTimeStr = (data as any).time;
@@ -21,14 +21,27 @@ if (Platform.OS !== 'web') {
                     const [h, m] = alarmTimeStr.split(':').map(Number);
                     const scheduledTime = new Date(now);
                     scheduledTime.setHours(h, m, 0, 0);
-
-                    // Se a hora do alarme para hoje já passou e estamos perto da meia-noite,
-                    // ou se o alarme for para amanhã, o diffMs será grande.
-                    // REGRA: Se a diferença for maior que 2 minutos (120.000ms), NÃO MOSTRA.
                     const diffMs = Math.abs(scheduledTime.getTime() - now.getTime());
                     
-                    if (diffMs > 120000) {
-                        console.log(`[PUSH BLOQUEADO] Hora: ${alarmTimeStr}, Agora: ${now.getHours()}:${now.getMinutes()}, Diff: ${Math.round(diffMs/1000/60)}min`);
+                    // 1. Bloqueia se foi agendado há menos de 5 segundos (bug do Android disparando no ato do agendamento)
+                    const scheduledAt = (data as any).scheduledAt;
+                    if (scheduledAt) {
+                        const ageMs = now.getTime() - new Date(scheduledAt).getTime();
+                        if (ageMs < 5000) {
+                            console.log(`[BLOQUEIO IMEDIATO] Ignorando disparo de alarme recém-criado (${Math.round(ageMs)}ms)`);
+                            return {
+                                shouldShowAlert: false,
+                                shouldPlaySound: false,
+                                shouldSetBadge: false,
+                                shouldShowBanner: false,
+                                shouldShowList: false,
+                            };
+                        }
+                    }
+
+                    // 2. Bloqueia se a diferença for maior que 30 minutos (evita notificações randômicas do sistema)
+                    if (diffMs > 30 * 60 * 1000) {
+                        console.log(`[BLOQUEIO HORÁRIO] Hora: ${alarmTimeStr}, Agora: ${now.getHours()}:${now.getMinutes()}, Diff: ${Math.round(diffMs/1000/60)}min`);
                         return {
                             shouldShowAlert: false,
                             shouldPlaySound: false,
@@ -189,7 +202,14 @@ export const scheduleMedicationReminder = async (
                 content: {
                     title: humanizedTitles[idx],
                     body: `Abra o Vitus para confirmar sua dose de ${medName}. ✅`,
-                    data: { reminderId, medicationId, type: 'medication_alarm', medName, time },
+                    data: { 
+                        reminderId, 
+                        medicationId, 
+                        type: 'medication_alarm', 
+                        medName, 
+                        time, 
+                        scheduledAt: new Date().toISOString() 
+                    },
                     sound: 'default',
                     priority: Notifications.AndroidNotificationPriority.MAX,
                     categoryIdentifier: 'medication',
