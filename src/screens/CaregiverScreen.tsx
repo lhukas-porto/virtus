@@ -87,7 +87,8 @@ export const CaregiverScreen = () => {
             setPhone('');
             fetchCaregivers();
         } catch (e: any) {
-            Alert.alert('Oops!', 'Não conseguimos adicionar o cuidador. Verifique a conexão e tente novamente.');
+            console.error('Erro ao vincular cuidador:', e);
+            Alert.alert('Oops!', `Não conseguimos adicionar o cuidador. Erro: ${e.message || 'Desconhecido'}`);
         } finally {
             setAdding(false);
         }
