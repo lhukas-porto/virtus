@@ -58,15 +58,17 @@ export const AlarmOverlay = () => {
                 // Evita disparos imediatos (no agendamento) ou passados (sincronização)
                 const now = new Date();
                 const alarmTimeStr = (data as any).time;
-                const [h, m] = typeof alarmTimeStr === 'string' ? alarmTimeStr.split(':').map(Number) : [now.getHours(), now.getMinutes()];
-                const scheduledTime = new Date(now);
-                scheduledTime.setHours(h, m, 0, 0);
 
-                // Diferença absoluta (Passado ou Futuro) maior que 1 minuto = Ignorar
-                const diffMs = Math.abs(scheduledTime.getTime() - now.getTime());
-                if (diffMs > 60000) {
-                    console.log(`--- [ALARME BLOQUEADO] Diferença de ${Math.round(diffMs / 1000)}s - Não é a hora exata. ---`);
-                    return;
+                if (typeof alarmTimeStr === 'string') {
+                    const [h, m] = alarmTimeStr.split(':').map(Number);
+                    const scheduledTime = new Date(now);
+                    scheduledTime.setHours(h, m, 0, 0);
+
+                    const diffMs = Math.abs(scheduledTime.getTime() - now.getTime());
+                    if (diffMs > 60000) {
+                        console.log(`--- [ALARME BLOQUEADO NO OVERLAY] Diferença de ${Math.round(diffMs / 1000)}s - Não é a hora exata. ---`);
+                        return;
+                    }
                 }
 
                 setAlarmData(data);

@@ -16,20 +16,26 @@ if (Platform.OS !== 'web') {
             if (data && data.type === 'medication_alarm') {
                 const now = new Date();
                 const alarmTimeStr = (data as any).time;
-                const [h, m] = typeof alarmTimeStr === 'string' ? alarmTimeStr.split(':').map(Number) : [now.getHours(), now.getMinutes()];
-                const scheduledTime = new Date(now);
-                scheduledTime.setHours(h, m, 0, 0);
 
-                // Se for um alarme agendado para o futuro (mais de 1 min), silencia a UI superior
-                const diffMs = Math.abs(scheduledTime.getTime() - now.getTime());
-                if (diffMs > 60000) {
-                    return {
-                        shouldShowAlert: false,
-                        shouldPlaySound: false,
-                        shouldSetBadge: false,
-                        shouldShowBanner: false,
-                        shouldShowList: false,
-                    };
+                if (typeof alarmTimeStr === 'string') {
+                    const [h, m] = alarmTimeStr.split(':').map(Number);
+                    const scheduledTime = new Date(now);
+                    scheduledTime.setHours(h, m, 0, 0);
+
+                    // Se a hora do alarme para hoje já passou e estamos perto da meia-noite,
+                    // ou se o alarme for para amanhã, o diffMs será grande.
+                    // REGRA: Se a diferença for maior que 1 minuto (60.000ms), NÃO MOSTRA.
+                    const diffMs = Math.abs(scheduledTime.getTime() - now.getTime());
+                    
+                    if (diffMs > 60000) {
+                        return {
+                            shouldShowAlert: false,
+                            shouldPlaySound: false,
+                            shouldSetBadge: false,
+                            shouldShowBanner: false,
+                            shouldShowList: false,
+                        };
+                    }
                 }
             }
 
@@ -131,16 +137,23 @@ export const scheduleMedicationReminder = async (
         // --- ⌚ ALARME NO RELÓGIO NATIVO (ANDROID) ---
         if (Platform.OS === 'android' && IntentLauncher) {
             try {
-                await IntentLauncher.startActivityAsync('android.intent.action.SET_ALARM', {
-                    extra: {
-                        'android.intent.extra.alarm.HOUR': hours,
-                        'android.intent.extra.alarm.MINUTES': minutes,
-                        'android.intent.extra.alarm.MESSAGE': `Vitus: ${medName}`,
-                        'android.intent.extra.alarm.SKIP_UI': true,
-                        'android.intent.extra.alarm.VIBRATE': true,
-                    },
-                });
-                console.log('>>> Alarme Nativo Agendado com Sucesso!');
+                // SÓ AGENDAR ALARME NATIVO SE FOR NO FUTURO (HOJE OU AMANHÃ)
+                const now = new Date();
+                const alarmToday = new Date();
+                alarmToday.setHours(hours, minutes, 0, 0);
+
+                if (alarmToday > now) {
+                    await IntentLauncher.startActivityAsync('android.intent.action.SET_ALARM', {
+                        extra: {
+                            'android.intent.extra.alarm.HOUR': hours,
+                            'android.intent.extra.alarm.MINUTES': minutes,
+                            'android.intent.extra.alarm.MESSAGE': `Vitus: ${medName}`,
+                            'android.intent.extra.alarm.SKIP_UI': true,
+                            'android.intent.extra.alarm.VIBRATE': true,
+                        },
+                    });
+                    console.log('>>> Alarme Nativo Agendado!');
+                }
             } catch (e) {
                 console.warn('Falha no alarme nativo:', e);
             }
@@ -261,9 +274,18 @@ export const syncNotifications = async () => {
             if (isContinuous) {
                 // Diário eterno: usa o DAILY trigger original
                 const cycles = Math.floor(24 / freq);
+                const now = new Date();
                 for (let i = 0; i < cycles; i++) {
                     const h = (hBase + (i * freq)) % 24;
                     const timeStr = `${String(h).padStart(2, '0')}:${String(mBase).padStart(2, '0')}`;
+                    
+                    // Bloqueio preventivo: Se o horário de HOJE já passou, não agenda o Alarme Nativo/Push para disparar agora (o que causaria o popup imediato)
+                    const scheduledForToday = new Date();
+                    scheduledForToday.setHours(h, mBase, 0, 0);
+                    
+                    // Se já passou mais de 1 minuto hoje, agendamos apenas para os próximos dias (delegado ao trigger DAILY do Expo)
+                    // mas podemos passar um parâmetro ou apenas confiar no filtro de recebimento que já colocamos.
+                    // Para ser extra seguro e evitar o Alarme Nativo do Android disparando agora:
                     await scheduleMedicationReminder(medName, timeStr, rem.id, rem.medication_id, undefined, undefined, new Date(rem.created_at));
                 }
             } else {
