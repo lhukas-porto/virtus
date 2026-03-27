@@ -156,6 +156,40 @@ export const HealthLogScreen = () => {
         }
     };
 
+    const handleDelete = () => {
+        if (!editingItem?.id) return;
+        
+        const confirmDelete = async () => {
+            setEditLoading(true);
+            try {
+                const { error } = await supabase.from('health_measurements').delete().eq('id', editingItem.id);
+                if (error) throw error;
+                setEditingItem(null);
+                fetchHistory();
+            } catch (err: any) {
+                if (Platform.OS === 'web') window.alert('Erro ao excluir: ' + err.message);
+                else Alert.alert('Erro', err.message);
+            } finally {
+                setEditLoading(false);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm('Tem certeza que deseja excluir esta medição?')) {
+                confirmDelete();
+            }
+        } else {
+            Alert.alert(
+                'Confirmação',
+                'Deseja excluir este registro de saúde?',
+                [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Excluir', style: 'destructive', onPress: confirmDelete }
+                ]
+            );
+        }
+    };
+
 
     return (
         <View style={styles.safeArea}>
@@ -213,10 +247,11 @@ export const HealthLogScreen = () => {
                             <View style={styles.heartRateContainer}>
                                 <Ionicons name="heart" size={24} color={theme.colors.alert} style={{ marginRight: 12 }} />
                                 <TextInput
-                                    style={styles.midInput}
+                                    style={[styles.midInput, !heartRate && { opacity: 0.5 }]}
                                     value={heartRate}
                                     onChangeText={setHeartRate}
                                     placeholder="75"
+                                    placeholderTextColor={theme.colors.text + '40'}
                                     keyboardType="numeric"
                                     maxLength={3}
                                 />
@@ -231,10 +266,11 @@ export const HealthLogScreen = () => {
                             <View style={styles.heartRateContainer}>
                                 <Ionicons name="water" size={24} color="#D81B60" style={{ marginRight: 12 }} />
                                 <TextInput
-                                    style={styles.midInput}
+                                    style={[styles.midInput, !bloodGlucose && { opacity: 0.5 }]}
                                     value={bloodGlucose}
                                     onChangeText={setBloodGlucose}
                                     placeholder="95"
+                                    placeholderTextColor={theme.colors.text + '40'}
                                     keyboardType="numeric"
                                     maxLength={3}
                                 />
@@ -374,7 +410,12 @@ export const HealthLogScreen = () => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalCard}>
-                        <Text style={styles.modalTitle}>✏️ Corrigir Registro</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <Text style={[styles.modalTitle, { marginBottom: 0 }]}>✏️ Corrigir Registro</Text>
+                            <TouchableOpacity onPress={handleDelete} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+                                <Ionicons name="trash-outline" size={24} color={theme.colors.alert} />
+                            </TouchableOpacity>
+                        </View>
                         <Text style={styles.modalSubtitle}>
                             {editingItem ? new Date(editingItem.measured_at).toLocaleString('pt-BR', {
                                 day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
