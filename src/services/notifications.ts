@@ -148,7 +148,7 @@ export const scheduleMedicationReminder = async (
                             'android.intent.extra.alarm.HOUR': hours,
                             'android.intent.extra.alarm.MINUTES': minutes,
                             'android.intent.extra.alarm.MESSAGE': `Vitus: ${medName}`,
-                            'android.intent.extra.alarm.SKIP_UI': true,
+                            'android.intent.extra.alarm.SKIP_UI': false,
                             'android.intent.extra.alarm.VIBRATE': true,
                         },
                     });
