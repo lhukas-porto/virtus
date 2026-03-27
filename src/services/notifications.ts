@@ -24,10 +24,11 @@ if (Platform.OS !== 'web') {
 
                     // Se a hora do alarme para hoje já passou e estamos perto da meia-noite,
                     // ou se o alarme for para amanhã, o diffMs será grande.
-                    // REGRA: Se a diferença for maior que 1 minuto (60.000ms), NÃO MOSTRA.
+                    // REGRA: Se a diferença for maior que 2 minutos (120.000ms), NÃO MOSTRA.
                     const diffMs = Math.abs(scheduledTime.getTime() - now.getTime());
                     
-                    if (diffMs > 60000) {
+                    if (diffMs > 120000) {
+                        console.log(`[PUSH BLOQUEADO] Hora: ${alarmTimeStr}, Agora: ${now.getHours()}:${now.getMinutes()}, Diff: ${Math.round(diffMs/1000/60)}min`);
                         return {
                             shouldShowAlert: false,
                             shouldPlaySound: false,
@@ -279,13 +280,8 @@ export const syncNotifications = async () => {
                     const h = (hBase + (i * freq)) % 24;
                     const timeStr = `${String(h).padStart(2, '0')}:${String(mBase).padStart(2, '0')}`;
                     
-                    // Bloqueio preventivo: Se o horário de HOJE já passou, não agenda o Alarme Nativo/Push para disparar agora (o que causaria o popup imediato)
-                    const scheduledForToday = new Date();
-                    scheduledForToday.setHours(h, mBase, 0, 0);
-                    
-                    // Se já passou mais de 1 minuto hoje, agendamos apenas para os próximos dias (delegado ao trigger DAILY do Expo)
-                    // mas podemos passar um parâmetro ou apenas confiar no filtro de recebimento que já colocamos.
-                    // Para ser extra seguro e evitar o Alarme Nativo do Android disparando agora:
+                    // Bloqueio preventivo: Se o horário de HOJE já passou, o trigger DAILY teoricamente agenda para amanhã.
+                    // Mas para evitar disparos imediatos bugados em alguns devices, só chamamos se houver coerência.
                     await scheduleMedicationReminder(medName, timeStr, rem.id, rem.medication_id, undefined, undefined, new Date(rem.created_at));
                 }
             } else {

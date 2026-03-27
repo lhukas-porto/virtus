@@ -65,8 +65,11 @@ export const AlarmOverlay = () => {
                     scheduledTime.setHours(h, m, 0, 0);
 
                     const diffMs = Math.abs(scheduledTime.getTime() - now.getTime());
-                    if (diffMs > 60000) {
-                        console.log(`--- [ALARME BLOQUEADO NO OVERLAY] Diferença de ${Math.round(diffMs / 1000)}s - Não é a hora exata. ---`);
+                    const twoMinutes = 120000;
+                    
+                    // Se o alarme for para mais tarde hoje ou se for de muitas horas atrás, bloqueia.
+                    if (diffMs > twoMinutes) {
+                        console.log(`--- [OVERLAY BLOQUEADO] Hora Alarme: ${alarmTimeStr}, Agora: ${now.getHours()}:${now.getMinutes()} ---`);
                         return;
                     }
                 }
