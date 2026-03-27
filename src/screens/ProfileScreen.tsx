@@ -379,13 +379,7 @@ export const ProfileScreen = () => {
                     <>
                         <View style={styles.menuSection}>
 
-                            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Caregiver')}>
-                                <View style={[styles.menuIcon, { backgroundColor: '#E8F5E9' }]}>
-                                    <Ionicons name="share-social-outline" size={24} color={theme.colors.primary} />
-                                </View>
-                                <Text style={styles.menuText}>Vitus Share (Cuidador)</Text>
-                                <Ionicons name="chevron-forward" size={20} color={theme.colors.border} />
-                            </TouchableOpacity>
+
 
                             <TouchableOpacity style={styles.menuItem} onPress={handleSupport}>
                                 <View style={styles.menuIcon}>
@@ -412,15 +406,7 @@ export const ProfileScreen = () => {
                             )}
                         </View>
 
-                        {/* Botão de Pânico */}
-                        <TouchableOpacity
-                            style={styles.panicButton}
-                            onPress={handlePanic}
-                            activeOpacity={0.85}
-                        >
-                            <Ionicons name="alert-circle" size={24} color="#FFF" style={{ marginRight: 10 }} />
-                            <Text style={styles.panicButtonText}>🆘 Chamar Ajuda Agora</Text>
-                        </TouchableOpacity>
+
 
                         <Button
                             title="Sair da Conta"

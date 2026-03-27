@@ -508,12 +508,7 @@ export const HomeScreen = () => {
                                 </View>
                             </View>
                         </View>
-                        <TouchableOpacity
-                            onPress={handleReload}
-                            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                        >
-                            <Ionicons name="refresh" size={24} color={theme.colors.primary} />
-                        </TouchableOpacity>
+
                     </View>
 
                     {agendaItems.filter(item => !hiddenItems.includes(item.id)).length > 0 ? (

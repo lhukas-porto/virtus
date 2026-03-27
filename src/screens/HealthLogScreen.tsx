@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     largeInput: {
-        fontSize: 40,
+        fontSize: 32,
         fontFamily: theme.fonts.heading,
         color: theme.colors.primary,
         textAlign: 'center',
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
         borderRadius: 14,
     },
     midInput: {
-        fontSize: 20,
+        fontSize: 18,
         fontFamily: theme.fonts.bold,
         color: theme.colors.text,
         minWidth: 42,
