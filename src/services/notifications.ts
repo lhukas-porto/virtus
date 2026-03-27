@@ -137,23 +137,23 @@ export const scheduleMedicationReminder = async (
         // --- ⌚ ALARME NO RELÓGIO NATIVO (ANDROID) ---
         if (Platform.OS === 'android' && IntentLauncher) {
             try {
-                // SÓ AGENDAR ALARME NATIVO SE FOR NO FUTURO (HOJE OU AMANHÃ)
                 const now = new Date();
-                const alarmToday = new Date();
-                alarmToday.setHours(hours, minutes, 0, 0);
+                const alarmTime = new Date();
+                alarmTime.setHours(hours, minutes, 0, 0);
 
-                if (alarmToday > now) {
-                    await IntentLauncher.startActivityAsync('android.intent.action.SET_ALARM', {
-                        extra: {
-                            'android.intent.extra.alarm.HOUR': hours,
-                            'android.intent.extra.alarm.MINUTES': minutes,
-                            'android.intent.extra.alarm.MESSAGE': `Vitus: ${medName}`,
-                            'android.intent.extra.alarm.SKIP_UI': false,
-                            'android.intent.extra.alarm.VIBRATE': true,
-                        },
-                    });
-                    console.log('>>> Alarme Nativo Agendado!');
-                }
+                // Se o horário já passou hoje, agendamos para amanhã (o Android cuida do "próximo dia" automaticamente com SET_ALARM se o horário for futuro)
+                // mas para garantir que o intent dispare sem abrir a tela, voltamos para SKIP_UI: true.
+                
+                await IntentLauncher.startActivityAsync('android.intent.action.SET_ALARM', {
+                    extra: {
+                        'android.intent.extra.alarm.HOUR': hours,
+                        'android.intent.extra.alarm.MINUTES': minutes,
+                        'android.intent.extra.alarm.MESSAGE': `Vitus: ${medName}`,
+                        'android.intent.extra.alarm.SKIP_UI': true,
+                        'android.intent.extra.alarm.VIBRATE': true,
+                    },
+                });
+                console.log('>>> Alarme Nativo Agendado!');
             } catch (e) {
                 console.warn('Falha no alarme nativo:', e);
             }
